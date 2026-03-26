@@ -5,12 +5,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const JWT_SECRET = process.env.JWT_SECRET || 'zenith-secret-key-2026';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -115,23 +111,22 @@ const MOCK_DEPARTMENTS = [
   "Pastries"
 ];
 
-async function startServer() {
-  const app = express();
-  const httpServer = createServer(app);
-  const io = new Server(httpServer, {
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST", "PUT", "DELETE"]
-    }
-  });
-  const PORT = 3000;
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE"]
+  }
+});
+const PORT = 3000;
 
-  io.on('connection', (socket) => {
-    console.log('Client connected:', socket.id);
-    socket.on('disconnect', () => {
-      console.log('Client disconnected:', socket.id);
-    });
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
   });
+});
 
   // Make io available to routes
   app.set('io', io);
@@ -1553,8 +1548,8 @@ async function startServer() {
     });
   }
 
-  return httpServer;
-}
+  // No return needed at top level
 
-startServer().catch(console.error);
-export default startServer;
+// No startServer() call needed at top level
+
+export default app;
