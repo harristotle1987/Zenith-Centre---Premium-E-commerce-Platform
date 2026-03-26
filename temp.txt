@@ -1,0 +1,303 @@
+1020:  async function ensureDatabaseSchema() {
+1021-    try {
+1022-      const sql = neon(DB_URL);
+1023-      
+1024-      // Create tables in order
+1025-      await sql`
+1026-        CREATE TABLE IF NOT EXISTS departments (
+1027-          id BIGSERIAL PRIMARY KEY,
+1028-          name VARCHAR(255) UNIQUE NOT NULL
+1029-        )
+1030-      `;
+1031-      
+1032-      await sql`
+1033-        CREATE TABLE IF NOT EXISTS products (
+1034-          id BIGSERIAL PRIMARY KEY,
+1035-          name VARCHAR(255) NOT NULL UNIQUE,
+1036-          price DECIMAL(10, 2) NOT NULL,
+1037-          image_url TEXT,
+1038-          stock_quantity INTEGER DEFAULT 100,
+1039-          department_id BIGINT REFERENCES departments(id) ON DELETE CASCADE
+1040-        )
+1041-      `;
+1042-
+1043-      await sql`
+1044-        CREATE TABLE IF NOT EXISTS users (
+1045-          id BIGSERIAL PRIMARY KEY,
+1046-          email VARCHAR(255) UNIQUE NOT NULL,
+1047-          password_hash TEXT NOT NULL,
+1048-          name VARCHAR(255) NOT NULL,
+1049-          role VARCHAR(50) DEFAULT 'customer',
+1050-          contact_info TEXT,
+1051-          profile_image_url TEXT,
+1052-          staff_id VARCHAR(50) UNIQUE,
+1053-          wallet_address VARCHAR(255),
+1054-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+1055-        )
+1056-      `;
+1057-
+1058-      await sql`
+1059-        CREATE TABLE IF NOT EXISTS activities (
+1060-          id BIGSERIAL PRIMARY KEY,
+1061-          user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+1062-          action TEXT NOT NULL,
+1063-          details JSONB,
+1064-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+1065-        )
+1066-      `;
+1067-
+1068-      await sql`
+1069-        CREATE TABLE IF NOT EXISTS orders (
+1070-          id BIGSERIAL PRIMARY KEY,
+1071-          user_id BIGINT REFERENCES users(id),
+1072-          guest_name VARCHAR(255),
+1073-          guest_email VARCHAR(255),
+1074-          guest_contact VARCHAR(255),
+1075-          total_amount DECIMAL(10, 2) NOT NULL,
+1076-          status VARCHAR(50) DEFAULT 'paid',
+1077-          order_type VARCHAR(50) DEFAULT 'delivery',
+1078-          payment_method VARCHAR(50),
+1079-          payment_reference VARCHAR(255),
+1080-          payment_status VARCHAR(50) DEFAULT 'pending',
+1081-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+1082-        )
+1083-      `;
+1084-
+1085-      await sql`
+1086-        CREATE TABLE IF NOT EXISTS order_items (
+1087-          id BIGSERIAL PRIMARY KEY,
+1088-          order_id BIGINT REFERENCES orders(id) ON DELETE CASCADE,
+1089-          product_id BIGINT REFERENCES products(id),
+1090-          quantity INTEGER NOT NULL,
+1091-          price_at_purchase DECIMAL(10, 2) NOT NULL
+1092-        )
+1093-      `;
+1094-
+1095-      await sql`
+1096-        CREATE TABLE IF NOT EXISTS transactions (
+1097-          id BIGSERIAL PRIMARY KEY,
+1098-          order_id BIGINT REFERENCES orders(id),
+1099-          amount DECIMAL(10, 2) NOT NULL,
+1100-          payment_method VARCHAR(50) DEFAULT 'card',
+1101-          payment_reference VARCHAR(255),
+1102-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+1103-        )
+1104-      `;
+1105-
+1106-      await sql`
+1107-        CREATE TABLE IF NOT EXISTS staff_departments (
+1108-          staff_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+1109-          department_id BIGINT REFERENCES departments(id) ON DELETE CASCADE,
+1110-          PRIMARY KEY (staff_id, department_id)
+1111-        )
+1112-      `;
+1113-      
+1114-      await sql`
+1115-        CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+1116-          id BIGSERIAL PRIMARY KEY,
+1117-          email VARCHAR(255) UNIQUE NOT NULL,
+1118-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+1119-        )
+1120-      `;
+1121-
+1122-      // Ensure default accounts
+1123-      const superAdminEmail = 'admin@zenith.com';
+1124-      const adminPassword = await bcrypt.hash('admin123', 10);
+1125-      const secretaryEmail = 'secretary@zenith.com';
+1126-      const secretaryPassword = await bcrypt.hash('secretary123', 10);
+1127-
+1128-      const existingAdmin = await sql`SELECT * FROM users WHERE email = ${superAdminEmail}`;
+1129-      if (existingAdmin.length === 0) {
+1130-        await sql`
+1131-          INSERT INTO users (email, password_hash, name, role)
+1132-          VALUES (${superAdminEmail}, ${adminPassword}, 'Super Admin', 'super_admin')
+1133-        `;
+1134-        console.log('Super admin created successfully');
+1135-      }
+1136-
+1137-      const existingSecretary = await sql`SELECT * FROM users WHERE email = ${secretaryEmail}`;
+1138-      if (existingSecretary.length === 0) {
+1139-        await sql`
+1140-          INSERT INTO users (email, password_hash, name, role)
+1141-          VALUES (${secretaryEmail}, ${secretaryPassword}, 'Secretary', 'secretary')
+1142-        `;
+1143-        console.log('Secretary created successfully');
+1144-      }
+1145-
+1146-      // Check if we need to seed initial departments if empty
+1147-      const deptCount = await sql`SELECT COUNT(*) FROM departments`;
+1148-      if (parseInt(deptCount[0].count) === 0) {
+1149-        console.log('Seeding initial departments...');
+1150-        const initialDepts = [
+1151-          "Organic Produce",
+1152-          "Dairy & Artisanal Cheese",
+1153-          "Bakery & Patisserie",
+1154-          "Prime Meats",
+1155-          "Fine Wines",
+1156-          "Pantry Essentials"
+1157-        ];
+1158-        for (const dept of initialDepts) {
+1159-          await sql`INSERT INTO departments (name) VALUES (${dept}) ON CONFLICT DO NOTHING`;
+1160-        }
+1161-      }
+1162-
+1163-      // Add UNIQUE constraint to name if it doesn't exist
+1164-      try {
+1165-        await sql`ALTER TABLE products ADD CONSTRAINT products_name_key UNIQUE (name)`;
+1166-      } catch (e) {
+1167-        // Constraint might already exist
+1168-      }
+1169-
+1170-      // Seed products
+--
+1299:  await ensureDatabaseSchema();
+1300-
+1301-  app.put('/api/auth/me', authenticateToken, async (req: any, res) => {
+1302-    try {
+1303-      const { name, contact_info, profile_image_url, wallet_address } = req.body;
+1304-      const sql = neon(DB_URL);
+1305-      
+1306-      const result = await sql`
+1307-        UPDATE users 
+1308-        SET name = COALESCE(${name}, name), 
+1309-            contact_info = COALESCE(${contact_info}, contact_info), 
+1310-            profile_image_url = COALESCE(${profile_image_url}, profile_image_url),
+1311-            wallet_address = COALESCE(${wallet_address}, wallet_address)
+1312-        WHERE id = ${req.user.id}
+1313-        RETURNING id, email, name, role, contact_info, profile_image_url, staff_id, wallet_address, created_at
+1314-      `;
+1315-      
+1316-      if (result.length === 0) {
+1317-        return res.status(404).json({ error: 'User not found' });
+1318-      }
+1319-      
+1320-      // Log activity if the user is a staff member or admin
+1321-      if (['super_admin', 'staff', 'accountant', 'secretary'].includes(req.user.role)) {
+1322-        await logActivity(req.user.id, 'profile_updated', { updated_fields: Object.keys(req.body) });
+1323-      }
+1324-      
+1325-      res.json(result[0]);
+1326-    } catch (error) {
+1327-      console.error('Update profile error:', error);
+1328-      res.status(500).json({ error: 'Failed to update profile' });
+1329-    }
+1330-  });
+1331-
+1332-  app.post('/api/auth/change-password', authenticateToken, async (req: any, res) => {
+1333-    try {
+1334-      const { currentPassword, newPassword } = req.body;
+1335-      const sql = neon(DB_URL);
+1336-      
+1337-      const userRes = await sql`SELECT password_hash FROM users WHERE id = ${req.user.id}`;
+1338-      if (userRes.length === 0) {
+1339-        return res.status(404).json({ error: 'User not found' });
+1340-      }
+1341-      
+1342-      if (userRes[0].password_hash === 'google-auth-no-password') {
+1343-        return res.status(400).json({ error: 'Cannot change password for Google authenticated accounts' });
+1344-      }
+1345-      
+1346-      const isMatch = await bcrypt.compare(currentPassword, userRes[0].password_hash);
+1347-      if (!isMatch) {
+1348-        return res.status(401).json({ error: 'Incorrect current password' });
+1349-      }
+1350-      
+1351-      const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+1352-      await sql`UPDATE users SET password_hash = ${hashedNewPassword} WHERE id = ${req.user.id}`;
+1353-      
+1354-      await logActivity(req.user.id, 'password_changed');
+1355-      res.json({ success: true, message: 'Password updated successfully' });
+1356-    } catch (error) {
+1357-      console.error('Change password error:', error);
+1358-      res.status(500).json({ error: 'Failed to update password' });
+1359-    }
+1360-  });
+1361-
+1362-  app.get('/api/orders', authenticateToken, async (req: any, res) => {
+1363-    try {
+1364-      const sql = neon(DB_URL);
+1365-      const orders = await sql`
+1366-        SELECT o.*, 
+1367-               json_agg(json_build_object(
+1368-                 'id', oi.id,
+1369-                 'product_name', p.name,
+1370-                 'quantity', oi.quantity,
+1371-                 'price', oi.price_at_purchase,
+1372-                 'image', p.image_url
+1373-               )) as items
+1374-        FROM orders o
+1375-        JOIN order_items oi ON o.id = oi.order_id
+1376-        JOIN products p ON oi.product_id = p.id
+1377-        WHERE o.user_id = ${req.user.id}
+1378-        GROUP BY o.id
+1379-        ORDER BY o.created_at DESC
+1380-      `;
+1381-      res.json(orders);
+1382-    } catch (error) {
+1383-      console.error('Fetch user orders error:', error);
+1384-      res.status(500).json({ error: 'Failed to fetch your orders' });
+1385-    }
+1386-  });
+1387-
+1388-  // Admin Routes (RBAC)
+1389-  app.get('/api/admin/accounts', authenticateToken, authorizeRole(['super_admin', 'accountant']), async (req: any, res) => {
+1390-    try {
+1391-      const sql = neon(DB_URL);
+1392-      const inflow = await sql`SELECT SUM(total_amount) as total FROM orders WHERE status = 'paid'`;
+1393-      const recentOrders = await sql`
+1394-        SELECT o.*, COALESCE(u.name, o.guest_name, 'Unknown Guest') as customer_name 
+1395-        FROM orders o 
+1396-        LEFT JOIN users u ON o.user_id = u.id 
+1397-        ORDER BY o.created_at DESC 
+1398-        LIMIT 50
+1399-      `;
+1400-      
+1401-      await logActivity(req.user.id, 'Viewed Accounts Dashboard');
+1402-      res.json({ totalInflow: inflow[0].total || 0, recentOrders });
+1403-    } catch (error) {
+1404-      res.status(500).json({ error: 'Failed to fetch accounts' });
+1405-    }
+1406-  });
+1407-
+1408-  app.get('/api/admin/transactions', authenticateToken, authorizeRole(['super_admin', 'accountant', 'secretary', 'staff']), async (req: any, res) => {
+1409-    try {
+1410-      const sql = neon(DB_URL);
+1411-      const transactions = await sql`
+1412-        SELECT t.*, o.order_type, 
+1413-               COALESCE(u.name, o.guest_name, 'Unknown Guest') as customer_name,
+1414-               COALESCE(u.email, o.guest_email) as customer_email,
+1415-               COALESCE(u.contact_info, o.guest_contact) as customer_contact
+1416-        FROM transactions t
+1417-        JOIN orders o ON t.order_id = o.id
+1418-        LEFT JOIN users u ON o.user_id = u.id
+1419-        ORDER BY t.created_at DESC
+1420-      `;
+1421-      
+1422-      await logActivity(req.user.id, 'Viewed Transactions');
+1423-      res.json(transactions);
+1424-    } catch (error) {
+1425-      console.error('Failed to fetch transactions:', error);
+1426-      res.status(500).json({ error: 'Failed to fetch transactions' });
+1427-    }
+1428-  });
+1429-
+1430-  app.get('/api/admin/staff', authenticateToken, authorizeRole(['super_admin']), async (req, res) => {
+1431-    try {
+1432-      const sql = neon(DB_URL);
+1433-      const staff = await sql`
+1434-        SELECT u.id, u.email, u.name, u.role, u.contact_info, u.profile_image_url, u.staff_id,
+1435-               COALESCE(json_agg(d.name) FILTER (WHERE d.name IS NOT NULL), '[]') as departments
+1436-        FROM users u
+1437-        LEFT JOIN staff_departments sd ON u.id = sd.staff_id
+1438-        LEFT JOIN departments d ON sd.department_id = d.id
+1439-        WHERE u.role IN ('staff', 'super_admin', 'accountant', 'secretary')
+1440-        GROUP BY u.id
+1441-      `;
+1442-      res.json(staff);
+1443-    } catch (error) {
+1444-      console.error('Fetch staff error:', error);
+1445-      res.status(500).json({ error: 'Failed to fetch staff' });
+1446-    }
+1447-  });
+1448-
+1449-  app.get('/api/admin/users', authenticateToken, authorizeRole(['super_admin']), async (req, res) => {
