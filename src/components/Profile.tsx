@@ -490,8 +490,8 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
                   </div>
                 )}
 
-                <div className="space-y-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 bg-white z-10 pb-2">
                     <div className="flex items-center gap-2">
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Filter Status:</label>
                       <select 

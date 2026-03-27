@@ -1429,11 +1429,11 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
               className="bg-white p-6 rounded-2xl border border-black/5 shadow-sm"
             >
               <div className="flex items-center justify-between mb-8 border-b border-black/5 pb-4">
-                <h2 className="text-xl font-serif font-bold">Pending Orders</h2>
+                <h2 className="text-xl font-serif font-bold">My Orders & Tracking</h2>
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">{filteredPendingOrders.length} Orders</span>
               </div>
               
-              <div className="space-y-6">
+              <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                 {filteredPendingOrders.length === 0 ? (
                   <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                     <ShoppingBag size={48} className="mx-auto text-gray-300 mb-4" />
@@ -2331,8 +2331,9 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
             >
               <h2 className="text-xl font-serif font-bold mb-6 border-b border-black/5 pb-4">All Transactions</h2>
               
-              {/* Desktop Table View */}
-              <div className="hidden md:block overflow-x-auto">
+              <div className="max-h-[700px] overflow-y-auto pr-2 custom-scrollbar">
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
                     <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-black/5">
@@ -2428,10 +2429,11 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                   </div>
                 ))}
               </div>
-            </motion.div>
-          )}
+            </div>
+          </motion.div>
+        )}
 
-          {activeTab === 'departments' && (
+        {activeTab === 'departments' && (
             <motion.div 
               key="departments"
               initial={{ opacity: 0, y: 20 }}
@@ -2522,8 +2524,9 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
 
               <div className="bg-white p-6 rounded-2xl border border-black/5 shadow-sm">
                 <h2 className="text-xl font-serif font-bold mb-6 border-b border-black/5 pb-4">Recent Transactions</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
+                <div className="max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
                     <thead>
                       <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-black/5">
                         <th className="pb-4 px-4">Order ID</th>
@@ -2551,8 +2554,9 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                   </table>
                 </div>
               </div>
-            </motion.div>
-          )}
+            </div>
+          </motion.div>
+        )}
 
           {activeTab === 'staff' && (user?.role === 'super_admin' || user?.role === 'staff') && (
             <motion.div 
