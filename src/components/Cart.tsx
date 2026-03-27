@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
 import { ShoppingCart, X, Plus, Minus, CreditCard, ShoppingBag, ArrowRight, Receipt, ShieldCheck, Landmark, Smartphone } from 'lucide-react';
 import { usePaystackPayment } from 'react-paystack';
 import { getApiUrl } from '../utils/api';
@@ -33,8 +34,9 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
   const [guestName, setGuestName] = useState(user?.name || '');
   const [guestEmail, setGuestEmail] = useState(user?.email || '');
   const [guestContact, setGuestContact] = useState(user?.contact_info || '');
+  const [deliveryAddress, setDeliveryAddress] = useState(user?.address || '');
 
-  const [errors, setErrors] = useState<{ name?: string; email?: string; contact?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string; email?: string; contact?: string; address?: string }>({});
 
   // Update fields when user changes
   React.useEffect(() => {
@@ -42,11 +44,12 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
       setGuestName(user.name || '');
       setGuestEmail(user.email || '');
       setGuestContact(user.contact_info || '');
+      setDeliveryAddress(user.address || '');
     }
   }, [user]);
 
   const validate = () => {
-    const newErrors: { name?: string; email?: string; contact?: string } = {};
+    const newErrors: { name?: string; email?: string; contact?: string; address?: string } = {};
     if (!guestName.trim()) newErrors.name = 'Full name is required';
     if (!guestEmail.trim()) {
       newErrors.email = 'Email is required';
@@ -54,6 +57,7 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
       newErrors.email = 'Invalid email format';
     }
     if (!guestContact.trim()) newErrors.contact = 'Contact number is required';
+    if (orderType === 'delivery' && !deliveryAddress.trim()) newErrors.address = 'Delivery address is required';
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -75,6 +79,7 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
   const processOrder = async (reference?: string) => {
     console.log('Processing order...', { reference, paymentMethod, orderType });
     setIsCheckingOut(true);
+    const loadingToast = toast.loading('Placing your order...');
     try {
       const endpoint = user ? '/api/orders' : '/api/guest-orders';
       const headers: any = { 'Content-Type': 'application/json' };
@@ -99,7 +104,8 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
         payment_reference: reference,
         guest_name: guestName,
         guest_email: guestEmail,
-        guest_contact: guestContact
+        guest_contact: guestContact,
+        delivery_address: orderType === 'delivery' ? deliveryAddress : null
       };
 
       console.log('Sending order request to:', endpoint, body);
@@ -114,17 +120,19 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
         const data = await res.json();
         console.log('Order successful:', data);
         setOrderSuccess(data.orderId);
+        toast.success('Order placed successfully!');
         onCheckout(orderType);
       } else {
         const errorData = await res.json();
         console.error('Order failed response:', errorData);
-        alert(errorData.error || 'Order recording failed. Please try again or contact support.');
+        toast.error(errorData.error || 'Order recording failed. Please try again or contact support.');
       }
     } catch (err) {
       console.error('Order connection error:', err);
-      alert('Connection error while recording order');
+      toast.error('Connection error while recording order');
     } finally {
       setIsCheckingOut(false);
+      toast.dismiss(loadingToast);
     }
   };
 
@@ -315,6 +323,22 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
                       />
                       {errors.contact && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.contact}</p>}
                     </div>
+
+                    {orderType === 'delivery' && (
+                      <div className="space-y-1">
+                        <textarea 
+                          placeholder="Delivery Address / Nearest Bus Stop" 
+                          value={deliveryAddress}
+                          onChange={(e) => {
+                            setDeliveryAddress(e.target.value);
+                            if (errors.address) setErrors({ ...errors, address: undefined });
+                          }}
+                          className={`w-full bg-white border ${errors.address ? 'border-red-500' : 'border-gray-200'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#d35400] min-h-[80px]`}
+                          required
+                        />
+                        {errors.address && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.address}</p>}
+                      </div>
+                    )}
                   </div>
                   
                   <div className="space-y-4 pt-4 border-t border-black/5">

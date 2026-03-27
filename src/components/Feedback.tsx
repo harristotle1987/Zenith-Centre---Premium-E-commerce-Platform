@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Star, Send, User, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
 import { getApiUrl } from '../utils/api';
 
 interface FeedbackItem {
@@ -57,6 +58,7 @@ export function Feedback({ productId, user }: FeedbackProps) {
     }
 
     setIsSubmitting(true);
+    const loadingToast = toast.loading('Submitting feedback...');
     try {
       const res = await fetch(getApiUrl('/api/feedback'), {
         method: 'POST',
@@ -74,14 +76,16 @@ export function Feedback({ productId, user }: FeedbackProps) {
         setComment('');
         setGuestName('');
         setRating(5);
+        toast.success('Feedback submitted successfully!');
         fetchFeedback();
       } else {
-        alert('Failed to submit feedback.');
+        toast.error('Failed to submit feedback.');
       }
     } catch (err) {
-      alert('Connection error while submitting feedback.');
+      toast.error('Connection error while submitting feedback.');
     } finally {
       setIsSubmitting(false);
+      toast.dismiss(loadingToast);
     }
   };
 

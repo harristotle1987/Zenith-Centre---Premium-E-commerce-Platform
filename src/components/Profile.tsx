@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { io } from 'socket.io-client';
 import { User, Mail, Phone, Calendar, ShoppingBag, LogOut, Shield, Settings, ArrowLeft, Camera, Save, X, Lock, ChevronRight, MapPin, CreditCard } from 'lucide-react';
+import { toast } from 'sonner';
 import { getApiUrl } from '../utils/api';
 import { AdminDashboard } from '../AdminDashboard';
 
@@ -14,11 +15,21 @@ interface ProfileProps {
   onUpdateUser?: (user: any) => void;
   currency: Currency;
   initialTab?: 'info' | 'orders' | 'admin';
+  onTabChange?: (tab: 'info' | 'orders' | 'admin') => void;
   cartItems?: any[];
 }
 
-export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUser, currency, initialTab = 'info', cartItems = [] }: ProfileProps) {
-  const [activeTab, setActiveTab] = useState<'info' | 'orders' | 'admin'>(initialTab);
+export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUser, currency, initialTab = 'info', onTabChange, cartItems = [] }: ProfileProps) {
+  const [activeTab, setActiveTab] = useState<'info' | 'orders' | 'admin'>(() => {
+    return (localStorage.getItem('profileActiveTab') as any) || initialTab;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('profileActiveTab', activeTab);
+    if (onTabChange) {
+      onTabChange(activeTab);
+    }
+  }, [activeTab, onTabChange]);
   const [user, setUser] = useState(initialUser);
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -43,9 +54,10 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
   const isAdmin = user && ['super_admin', 'staff', 'accountant', 'secretary'].includes(user.role);
 
   useEffect(() => {
-    if (isAdmin) {
-      setActiveTab('admin');
-    }
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
     fetchOrders();
 
     const socket = io(getApiUrl(''));
@@ -68,7 +80,7 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
   };
 
   const filteredAndSortedOrders = orders
-    .filter(order => filterStatus === 'all' || order.status === filterStatus)
+    .filter(order => filterStatus === 'all' || (order.status && order.status.toUpperCase() === filterStatus.toUpperCase()))
     .sort((a, b) => {
       const aValue = a[sortConfig.key];
       const bValue = b[sortConfig.key];
@@ -113,11 +125,12 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      alert('New passwords do not match');
+      toast.error('New passwords do not match');
       return;
     }
     
     setIsChangingPassword(true);
+    const loadingToast = toast.loading('Updating password...');
     try {
       const res = await fetch(getApiUrl('/api/auth/change-password'), {
         method: 'POST',
@@ -130,19 +143,20 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
       
       const data = await res.json();
       if (res.ok) {
-        alert('Password changed successfully');
+        toast.success('Password changed successfully');
         setShowChangePassword(false);
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
       } else {
-        alert(data.error || 'Failed to change password');
+        toast.error(data.error || 'Failed to change password');
       }
     } catch (error) {
       console.error('Error changing password:', error);
-      alert('Error changing password');
+      toast.error('Error changing password');
     } finally {
       setIsChangingPassword(false);
+      toast.dismiss(loadingToast);
     }
   };
 
@@ -159,6 +173,7 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
 
   const handleSaveProfile = async () => {
     setIsSaving(true);
+    const loadingToast = toast.loading('Updating profile...');
     try {
       const res = await fetch(getApiUrl('/api/auth/me'), {
         method: 'PUT',
@@ -181,14 +196,17 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
         if (onUpdateUser) {
           onUpdateUser(updatedUser);
         }
+        toast.success('Profile updated successfully!');
       } else {
-        alert('Failed to update profile');
+        const data = await res.json();
+        toast.error(data.error || 'Failed to update profile');
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Error updating profile');
+      toast.error('Network error');
     } finally {
       setIsSaving(false);
+      toast.dismiss(loadingToast);
     }
   };
 
@@ -620,7 +638,7 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
               <div className="p-6 border-b border-black/5 flex justify-between items-center">
                 <div>
                   <h3 className="text-lg font-serif font-bold text-[#1a1a1a]">Order Details</h3>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">#{selectedOrder.id.slice(0, 12)}</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">#{String(selectedOrder.id).slice(0, 12)}</p>
                 </div>
                 <button 
                   onClick={() => setSelectedOrder(null)}
@@ -674,6 +692,16 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
 
                   {/* Summary */}
                   <div className="pt-4 border-t border-black/5 space-y-2">
+                    {selectedOrder.order_type === 'delivery' && selectedOrder.delivery_address && (
+                      <div className="mb-4 bg-purple-50 p-3 rounded-xl border border-purple-100">
+                        <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                          <MapPin size={12} /> Delivery Address
+                        </p>
+                        <p className="text-xs text-purple-900 font-medium leading-relaxed">
+                          {selectedOrder.delivery_address}
+                        </p>
+                      </div>
+                    )}
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-500 font-medium">Subtotal</span>
                       <span className="text-gray-700 font-bold">{formatPrice(selectedOrder.total_amount / 1.05, currency)}</span>

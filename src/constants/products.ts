@@ -5,6 +5,7 @@ export interface Product {
   image: string;
   department: string;
   stock?: number;
+  description?: string;
 }
 
 export const DEPARTMENTS = [

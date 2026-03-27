@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
+import { toast } from 'sonner';
 import { LogIn, UserPlus, Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff, MapPin, X } from 'lucide-react';
 import { getApiUrl } from '../utils/api';
 
@@ -31,6 +32,7 @@ export function Auth({ onLogin, onClose }: AuthProps) {
   }, [onLogin]);
 
   const handleGoogleLogin = async () => {
+    const loadingToast = toast.loading('Initializing Google Login...');
     try {
       const res = await fetch(getApiUrl('/api/auth/google/url'));
       const data = await res.json();
@@ -43,6 +45,9 @@ export function Auth({ onLogin, onClose }: AuthProps) {
     } catch (err: any) {
       console.error('Google Login error:', err);
       setError(err.message || 'Google Login failed to initialize. Please check your GOOGLE_CLIENT_ID and ensure you are on the correct App URL.');
+      toast.error('Google Login failed to initialize');
+    } finally {
+      toast.dismiss(loadingToast);
     }
   };
 
@@ -50,6 +55,7 @@ export function Auth({ onLogin, onClose }: AuthProps) {
     e.preventDefault();
     setLoading(true);
     setError('');
+    const loadingToast = toast.loading(isLogin ? 'Signing in...' : 'Creating account...');
 
     const endpoint = isLogin ? getApiUrl('/api/auth/login') : getApiUrl('/api/auth/register');
     const body = isLogin 
@@ -67,20 +73,24 @@ export function Auth({ onLogin, onClose }: AuthProps) {
 
       if (res.ok) {
         if (isLogin) {
+          toast.success('Login successful!');
           onLogin(data.user, data.token);
         } else {
           setIsLogin(true);
           setEmail(data.email);
-          alert('Registration successful! Please login.');
+          toast.success('Registration successful! Please login.');
         }
       } else {
         setError(data.error || 'Authentication failed');
+        toast.error(data.error || 'Authentication failed');
       }
     } catch (err: any) {
       console.error('Auth error:', err);
       setError(`Connection error: ${err.message || 'Please ensure the backend is reachable.'}`);
+      toast.error('Connection error');
     } finally {
       setLoading(false);
+      toast.dismiss(loadingToast);
     }
   };
 
@@ -227,21 +237,26 @@ export function Auth({ onLogin, onClose }: AuthProps) {
               onClick={async () => {
                 if (confirm('This will initialize/reset the database and set the admin password to admin123. Continue?')) {
                   setInitLoading(true);
+                  const loadingToast = toast.loading('Initializing system...');
                   try {
                     const res = await fetch(getApiUrl('/api/init-db?reset=true'), { 
                       method: 'POST',
                       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                     });
                     if (res.ok) {
+                      toast.success('System initialized successfully!');
                       alert('System initialized! You can now login with:\nAdmin: harristotle84@gmail.com / admin123\nSecretary: secretary@zenith.com / secretary123');
                     } else {
                       const data = await res.json();
+                      toast.error('Initialization failed');
                       alert('Initialization failed: ' + (data.error || 'Server error'));
                     }
                   } catch (err) {
+                    toast.error('Connection error');
                     alert('Connection error during initialization. Please ensure you are using the correct App URL and that the backend server is running.');
                   } finally {
                     setInitLoading(false);
+                    toast.dismiss(loadingToast);
                   }
                 }
               }}

@@ -43,6 +43,12 @@ export const ProductCard: React.FC<Props> = ({ product, onAddToCart, onViewDetai
               {product.name}
             </h3>
           </div>
+
+          {product.description && (
+            <p className="text-xs text-gray-500 line-clamp-2 mb-3 leading-relaxed">
+              {product.description}
+            </p>
+          )}
           
           <div className="flex items-center gap-1 mb-4">
             {[...Array(5)].map((_, i) => (

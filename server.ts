@@ -193,7 +193,9 @@ io.on('connection', (socket) => {
         comment TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`;
-      console.log('Payment and guest columns checked/added to orders and transactions tables, settings table initialized, feedback table initialized');
+      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT`;
+      await sql`ALTER TABLE products DROP CONSTRAINT IF EXISTS products_name_key`;
+      console.log('Payment and guest columns checked/added to orders and transactions tables, settings table initialized, feedback table initialized, product description column checked, unique constraint on product name dropped');
     } catch (e) {
       console.error('Migration error:', e);
     }
@@ -468,7 +470,7 @@ io.on('connection', (socket) => {
     try {
       console.time('fetchProducts');
       const products = await sql`
-        SELECT p.id, p.name, p.price, p.image_url as image, p.stock_quantity as stock, d.name as department
+        SELECT p.id, p.name, p.price, p.image_url as image, p.stock_quantity as stock, d.name as department, p.description
         FROM products p
         LEFT JOIN departments d ON p.department_id = d.id
       `;
@@ -563,9 +565,10 @@ io.on('connection', (socket) => {
       await sql`
         CREATE TABLE IF NOT EXISTS products (
           id BIGSERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL UNIQUE,
+          name VARCHAR(255) NOT NULL,
           price DECIMAL(10, 2) NOT NULL,
           image_url TEXT,
+          description TEXT,
           stock_quantity INTEGER DEFAULT 100,
           department_id BIGINT REFERENCES departments(id) ON DELETE CASCADE
         )
@@ -609,7 +612,8 @@ io.on('connection', (socket) => {
           order_type VARCHAR(50) DEFAULT 'pickup', -- 'pickup', 'in-store'
           payment_method VARCHAR(50) DEFAULT 'card',
           payment_reference VARCHAR(255),
-          payment_status VARCHAR(50) DEFAULT 'pending',
+          payment_status VARCHAR(50) DEFAULT 'PENDING',
+          delivery_address TEXT,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `;
@@ -621,7 +625,8 @@ io.on('connection', (socket) => {
         await sql`ALTER TABLE orders ADD COLUMN staff_id BIGINT REFERENCES users(id)`;
         await sql`ALTER TABLE orders ADD COLUMN payment_method VARCHAR(50) DEFAULT 'card'`;
         await sql`ALTER TABLE orders ADD COLUMN payment_reference VARCHAR(255)`;
-        await sql`ALTER TABLE orders ADD COLUMN payment_status VARCHAR(50) DEFAULT 'pending'`;
+        await sql`ALTER TABLE orders ADD COLUMN payment_status VARCHAR(50) DEFAULT 'PENDING'`;
+        await sql`ALTER TABLE orders ADD COLUMN delivery_address TEXT`;
       } catch (e) {
         // Columns might already exist, ignore
       }
@@ -860,7 +865,7 @@ io.on('connection', (socket) => {
   app.get('/api/admin/accounts', authenticateToken, authorizeRole(['super_admin', 'staff', 'accountant', 'secretary']), async (req: any, res) => {
     try {
       
-      const inflow = await sql`SELECT SUM(total_amount) as total FROM orders WHERE status = 'paid'`;
+      const inflow = await sql`SELECT SUM(total_amount) as total FROM orders WHERE status = 'PAID' OR status = 'COMPLETED'`;
       const recentOrders = await sql`
         SELECT o.*, COALESCE(u.name, o.guest_name, 'Unknown Guest') as customer_name 
         FROM orders o 
@@ -1067,7 +1072,7 @@ io.on('connection', (socket) => {
 
       await sql`
         UPDATE orders 
-        SET payment_status = 'completed', status = 'completed'
+        SET payment_status = 'COMPLETED', status = 'COMPLETED'
         WHERE id = ${id}
       `;
 
@@ -1236,7 +1241,7 @@ io.on('connection', (socket) => {
   // Order Routes
   app.post('/api/orders', authenticateToken, async (req: any, res) => {
     try {
-      const { items, total_amount, order_type, payment_method, payment_reference, payment_status, guest_name, guest_email, guest_contact } = req.body;
+      const { items, total_amount, order_type, payment_method, payment_reference, payment_status, guest_name, guest_email, guest_contact, delivery_address } = req.body;
       
       
       // Check stock for all items first
@@ -1253,11 +1258,11 @@ io.on('connection', (socket) => {
       const isStaff = ['super_admin', 'staff', 'accountant', 'secretary'].includes(req.user.role);
       const staffId = isStaff ? req.user.id : null;
       const userId = isStaff ? null : req.user.id;
-      const initialStatus = payment_status === 'paid' ? 'PAID' : 'PLACED';
+      const initialStatus = (payment_status && (payment_status.toUpperCase() === 'PAID' || payment_status.toUpperCase() === 'COMPLETED')) ? 'PAID' : 'PLACED';
 
       const orderResult = await sql`
-        INSERT INTO orders (user_id, staff_id, total_amount, order_type, payment_method, payment_reference, payment_status, guest_name, guest_email, guest_contact, status)
-        VALUES (${userId}, ${staffId}, ${total_amount}, ${order_type}, ${payment_method || 'card'}, ${payment_reference || null}, ${payment_status || 'pending'}, ${guest_name || null}, ${guest_email || null}, ${guest_contact || null}, ${initialStatus})
+        INSERT INTO orders (user_id, staff_id, total_amount, order_type, payment_method, payment_reference, payment_status, guest_name, guest_email, guest_contact, status, delivery_address)
+        VALUES (${userId}, ${staffId}, ${total_amount}, ${order_type}, ${payment_method || 'card'}, ${payment_reference || null}, ${payment_status || 'PENDING'}, ${guest_name || null}, ${guest_email || null}, ${guest_contact || null}, ${initialStatus}, ${delivery_address || null})
         RETURNING id
       `;
       const orderId = orderResult[0].id;
@@ -1289,7 +1294,7 @@ io.on('connection', (socket) => {
 
   app.post('/api/guest-orders', async (req: any, res) => {
     try {
-      const { items, total_amount, order_type, guest_name, guest_email, guest_contact, payment_method, payment_reference, payment_status } = req.body;
+      const { items, total_amount, order_type, guest_name, guest_email, guest_contact, payment_method, payment_reference, payment_status, delivery_address } = req.body;
       
       
       // Check stock for all items first
@@ -1303,11 +1308,11 @@ io.on('connection', (socket) => {
         }
       }
 
-      const initialStatus = payment_status === 'paid' ? 'PAID' : 'PLACED';
+      const initialStatus = (payment_status && (payment_status.toUpperCase() === 'PAID' || payment_status.toUpperCase() === 'COMPLETED')) ? 'PAID' : 'PLACED';
 
       const orderResult = await sql`
-        INSERT INTO orders (guest_name, guest_email, guest_contact, total_amount, order_type, payment_method, payment_reference, payment_status, status)
-        VALUES (${guest_name}, ${guest_email}, ${guest_contact}, ${total_amount}, ${order_type}, ${payment_method || 'card'}, ${payment_reference || null}, ${payment_status || 'pending'}, ${initialStatus})
+        INSERT INTO orders (guest_name, guest_email, guest_contact, total_amount, order_type, payment_method, payment_reference, payment_status, status, delivery_address)
+        VALUES (${guest_name}, ${guest_email}, ${guest_contact}, ${total_amount}, ${order_type}, ${payment_method || 'card'}, ${payment_reference || null}, ${payment_status || 'PENDING'}, ${initialStatus}, ${delivery_address || null})
         RETURNING id
       `;
       const orderId = orderResult[0].id;
@@ -1368,7 +1373,7 @@ io.on('connection', (socket) => {
 
   app.post('/api/products', authenticateToken, authorizeRole(['super_admin', 'staff', 'secretary']), async (req: any, res) => {
     try {
-      const { name, price, image_url, department_name, stock_quantity } = req.body;
+      const { name, price, image_url, department_name, stock_quantity, description } = req.body;
       console.log('Adding product:', name, 'to department:', department_name);
       if (!name || !price || !department_name) {
         return res.status(400).json({ error: 'Name, price, and department are required' });
@@ -1385,8 +1390,8 @@ io.on('connection', (socket) => {
       const finalStock = stock_quantity !== undefined ? stock_quantity : 100;
       
       const result = await sql`
-        INSERT INTO products (name, price, image_url, stock_quantity, department_id) 
-        VALUES (${name}, ${price}, ${image_url}, ${finalStock}, ${department_id}) 
+        INSERT INTO products (name, price, image_url, stock_quantity, department_id, description) 
+        VALUES (${name}, ${price}, ${image_url}, ${finalStock}, ${department_id}, ${description || null}) 
         RETURNING *
       `;
       await logActivity(req.user.id, 'Added Product', { product_name: name, price });
@@ -1413,7 +1418,7 @@ io.on('connection', (socket) => {
   app.put('/api/products/:id', authenticateToken, authorizeRole(['super_admin', 'staff', 'secretary']), async (req: any, res) => {
     try {
       const { id } = req.params;
-      const { name, price, image_url, department_name, stock_quantity } = req.body;
+      const { name, price, image_url, department_name, stock_quantity, description } = req.body;
       
       if (!name || !price || !department_name) {
         return res.status(400).json({ error: 'Name, price, and department are required' });
@@ -1430,7 +1435,7 @@ io.on('connection', (socket) => {
       
       const result = await sql`
         UPDATE products 
-        SET name = ${name}, price = ${price}, image_url = ${image_url}, stock_quantity = ${finalStock}, department_id = ${department_id}
+        SET name = ${name}, price = ${price}, image_url = ${image_url}, stock_quantity = ${finalStock}, department_id = ${department_id}, description = ${description || null}
         WHERE id = ${id} 
         RETURNING *
       `;

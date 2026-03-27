@@ -2,9 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { io } from 'socket.io-client';
 import { Product } from './constants/products';
-import { Trash2, Plus, Database, TrendingUp, Users, Package, Layers, DollarSign, Calendar, User as UserIcon, ShoppingBag, Menu, X, ChevronDown, Check, Edit, Activity, Settings, Search } from 'lucide-react';
+import { Trash2, Plus, Database, TrendingUp, Users, Package, Layers, DollarSign, Calendar, User as UserIcon, ShoppingBag, Menu, X, ChevronDown, Check, Edit, Activity, Settings, Search, MapPin, Phone, Shield } from 'lucide-react';
 import { getApiUrl } from './utils/api';
 import { Currency, formatPrice } from './utils/currency';
+import { toast } from 'sonner';
 
 interface AdminDashboardProps {
   user: any;
@@ -14,7 +15,13 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardProps) {
   const baseUrl = getApiUrl('');
-  const [activeTab, setActiveTab] = useState<'pos' | 'products' | 'departments' | 'accounts' | 'staff' | 'transactions' | 'activities' | 'pending_orders' | 'settings'>('pos');
+  const [activeTab, setActiveTab] = useState<'pos' | 'products' | 'departments' | 'accounts' | 'staff' | 'transactions' | 'activities' | 'pending_orders' | 'settings'>(() => {
+    return (localStorage.getItem('adminActiveTab') as any) || 'pos';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('adminActiveTab', activeTab);
+  }, [activeTab]);
   const [minStockThreshold, setMinStockThreshold] = useState(5);
   const [profileImageUrl, setProfileImageUrl] = useState(user?.profile_image_url || '');
   const [profileName, setProfileName] = useState(user?.name || '');
@@ -33,8 +40,21 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
   const [filterEndDate, setFilterEndDate] = useState('');
 
   const filteredPendingOrders = useMemo(() => {
-    return pendingOrders.filter(order => order.status !== 'COMPLETED' && order.status !== 'CANCELLED');
-  }, [pendingOrders]);
+    let filtered = pendingOrders;
+    
+    if (filterMethod !== 'all') {
+      filtered = filtered.filter(order => order.status && order.status.toUpperCase() === filterMethod.toUpperCase());
+    } else {
+      // Default view: show everything except completed/cancelled
+      filtered = filtered.filter(order => {
+        if (!order.status) return true;
+        const status = order.status.toUpperCase();
+        return status !== 'COMPLETED' && status !== 'CANCELLED';
+      });
+    }
+    
+    return filtered;
+  }, [pendingOrders, filterMethod]);
   
   // POS State
   const [posCart, setPosCart] = useState<{ product: Product, quantity: number }[]>([]);
@@ -84,6 +104,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
   
   const [newProdName, setNewProdName] = useState('');
   const [newProdPrice, setNewProdPrice] = useState('');
+  const [newProdDescription, setNewProdDescription] = useState('');
   const [newProdImage, setNewProdImage] = useState('');
   const [newProdDept, setNewProdDept] = useState('');
   const [newProdStock, setNewProdStock] = useState('100');
@@ -108,6 +129,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [editProdName, setEditProdName] = useState('');
   const [editProdPrice, setEditProdPrice] = useState('');
+  const [editProdDescription, setEditProdDescription] = useState('');
   const [editProdImage, setEditProdImage] = useState('');
   const [editProdDept, setEditProdDept] = useState('');
   const [editProdStock, setEditProdStock] = useState('');
@@ -232,12 +254,18 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
   }, [user]);
 
   const showMessage = (msg: string, type: 'success' | 'error' = 'success') => {
+    if (type === 'success') {
+      toast.success(msg);
+    } else {
+      toast.error(msg);
+    }
     setMessage(msg);
     setMessageType(type);
     setTimeout(() => setMessage(''), 3000);
   };
 
   const updateExchangeRate = async () => {
+    const loadingToast = toast.loading('Updating exchange rate...');
     try {
       const res = await fetch(getApiUrl('/api/admin/exchange-rate'), {
         method: 'PUT',
@@ -257,10 +285,13 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
     } catch (error) {
       console.error('Error updating exchange rate:', error);
       showMessage('Error updating exchange rate.', 'error');
+    } finally {
+      toast.dismiss(loadingToast);
     }
   };
 
   const initDb = async () => {
+    const loadingToast = toast.loading('Initializing database...');
     try {
       const res = await fetch(getApiUrl('/api/init-db?reset=true'), { 
         method: 'POST',
@@ -275,10 +306,13 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
       }
     } catch (error) {
       showMessage('Error initializing database.', 'error');
+    } finally {
+      toast.dismiss(loadingToast);
     }
   };
 
   const checkDbHealth = async () => {
+    const loadingToast = toast.loading('Checking database health...');
     try {
       const res = await fetch(getApiUrl('/api/db-health'));
       const data = await res.json();
@@ -290,12 +324,15 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
     } catch (error) {
       console.error('Health check failed:', error);
       showMessage('Failed to reach the server. Please check your internet connection.', 'error');
+    } finally {
+      toast.dismiss(loadingToast);
     }
   };
 
   const addDepartment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDeptName) return;
+    const loadingToast = toast.loading('Adding department...');
     try {
       const res = await fetch(getApiUrl('/api/departments'), {
         method: 'POST',
@@ -316,6 +353,8 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
     } catch (error) {
       console.error('Error adding department:', error);
       showMessage('Error adding department. Please check your connection.', 'error');
+    } finally {
+      toast.dismiss(loadingToast);
     }
   };
 
@@ -325,6 +364,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
       message: `Are you sure you want to delete "${name}"? This will permanently remove all products in this department.`,
       isDanger: true,
       onConfirm: async () => {
+        const loadingToast = toast.loading('Deleting department...');
         try {
           const res = await fetch(getApiUrl(`/api/departments/${encodeURIComponent(name)}`), { 
             method: 'DELETE',
@@ -339,6 +379,8 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
           }
         } catch (error) {
           showMessage('Error deleting department.', 'error');
+        } finally {
+          toast.dismiss(loadingToast);
         }
         setShowConfirm(false);
       }
@@ -349,6 +391,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
   const addProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProdName || !newProdPrice || !newProdDept) return;
+    const loadingToast = toast.loading('Adding product...');
     try {
       const res = await fetch(getApiUrl('/api/products'), {
         method: 'POST',
@@ -359,6 +402,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
         body: JSON.stringify({
           name: newProdName,
           price: parseFloat(newProdPrice),
+          description: newProdDescription,
           image_url: newProdImage || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=800',
           department_name: newProdDept,
           stock_quantity: parseInt(newProdStock, 10) || 0
@@ -367,6 +411,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
       if (res.ok) {
         setNewProdName('');
         setNewProdPrice('');
+        setNewProdDescription('');
         setNewProdImage('');
         setNewProdDept('');
         setNewProdStock('100');
@@ -379,6 +424,8 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
     } catch (error) {
       console.error('Error adding product:', error);
       showMessage('Error adding product. Please check your connection.', 'error');
+    } finally {
+      toast.dismiss(loadingToast);
     }
   };
 
@@ -399,6 +446,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
     setEditingProductId(prod.id);
     setEditProdName(prod.name);
     setEditProdPrice(prod.price.toString());
+    setEditProdDescription(prod.description || '');
     setEditProdImage(prod.image);
     setEditProdDept(prod.department);
     setEditProdStock(prod.stock?.toString() || '0');
@@ -408,6 +456,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
     e.preventDefault();
     if (!editingProductId || !editProdName || !editProdPrice || !editProdDept) return;
     
+    const loadingToast = toast.loading('Updating product...');
     try {
       const res = await fetch(getApiUrl(`/api/products/${editingProductId}`), {
         method: 'PUT',
@@ -418,6 +467,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
         body: JSON.stringify({
           name: editProdName,
           price: parseFloat(editProdPrice),
+          description: editProdDescription,
           image_url: editProdImage || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=800',
           department_name: editProdDept,
           stock_quantity: parseInt(editProdStock, 10) || 0
@@ -433,6 +483,8 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
       }
     } catch (error) {
       showMessage('Error updating product. Please check your connection.', 'error');
+    } finally {
+      toast.dismiss(loadingToast);
     }
   };
 
@@ -442,6 +494,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
       message: 'Are you sure you want to delete this product from the menu?',
       isDanger: true,
       onConfirm: async () => {
+        const loadingToast = toast.loading('Deleting product...');
         try {
           const res = await fetch(getApiUrl(`/api/products/${id}`), { 
             method: 'DELETE',
@@ -456,6 +509,8 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
           }
         } catch (error) {
           showMessage('Error deleting product.', 'error');
+        } finally {
+          toast.dismiss(loadingToast);
         }
         setShowConfirm(false);
       }
@@ -464,6 +519,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
   };
 
   const updateStock = async (id: string) => {
+    const loadingToast = toast.loading('Updating stock...');
     try {
       const res = await fetch(getApiUrl(`/api/products/${id}/stock`), {
         method: 'PUT',
@@ -482,6 +538,8 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
       }
     } catch (error) {
       showMessage('Error updating stock.', 'error');
+    } finally {
+      toast.dismiss(loadingToast);
     }
   };
 
@@ -512,6 +570,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
   };
 
   const fetchActivities = async (staffId: number, staffName: string) => {
+    const loadingToast = toast.loading(`Fetching activities for ${staffName}...`);
     try {
       const res = await fetch(getApiUrl(`/api/admin/staff/${staffId}/activities`), {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
@@ -527,6 +586,8 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
     } catch (error) {
       console.error('Error fetching activities:', error);
       showMessage('Failed to fetch activities. Please check your connection.');
+    } finally {
+      toast.dismiss(loadingToast);
     }
   };
 
@@ -536,6 +597,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
       message: 'Are you sure you want to delete this staff member? This action cannot be undone.',
       isDanger: true,
       onConfirm: async () => {
+        const loadingToast = toast.loading('Deleting staff member...');
         try {
           const res = await fetch(getApiUrl(`/api/admin/staff/${id}`), {
             method: 'DELETE',
@@ -550,6 +612,8 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
           }
         } catch (error) {
           showMessage('Error deleting staff member.', 'error');
+        } finally {
+          toast.dismiss(loadingToast);
         }
         setShowConfirm(false);
       }
@@ -558,6 +622,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
   };
 
   const updateOrderStatus = async (orderId: number, status: string) => {
+    const loadingToast = toast.loading('Updating order status...');
     try {
       const res = await fetch(getApiUrl(`/api/admin/orders/${orderId}/status`), {
         method: 'PUT',
@@ -576,6 +641,8 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
       }
     } catch (error) {
       showMessage('Network error', 'error');
+    } finally {
+      toast.dismiss(loadingToast);
     }
   };
 
@@ -584,6 +651,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
       title: 'Complete Order',
       message: 'Are you sure you want to mark this order as completed? This confirms that payment has been verified.',
       onConfirm: async () => {
+        const loadingToast = toast.loading('Completing order...');
         try {
           const res = await fetch(getApiUrl(`/api/admin/orders/${orderId}/complete`), {
             method: 'POST',
@@ -598,6 +666,8 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
           }
         } catch (error) {
           showMessage('Error completing order.', 'error');
+        } finally {
+          toast.dismiss(loadingToast);
         }
         setShowConfirm(false);
       }
@@ -610,6 +680,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
       title: 'Delete Order',
       message: 'Are you sure you want to delete this order? This action cannot be undone and will remove all associated transaction records.',
       onConfirm: async () => {
+        const loadingToast = toast.loading('Deleting order...');
         try {
           const res = await fetch(getApiUrl(`/api/admin/orders/${orderId}`), {
             method: 'DELETE',
@@ -624,6 +695,8 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
           }
         } catch (error) {
           showMessage('Error deleting order.', 'error');
+        } finally {
+          toast.dismiss(loadingToast);
         }
         setShowConfirm(false);
       }
@@ -635,6 +708,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
     e.preventDefault();
     
     const submitStaff = async () => {
+      const loadingToast = toast.loading('Creating staff account...');
       try {
         const res = await fetch(getApiUrl('/api/admin/staff'), {
           method: 'POST',
@@ -670,6 +744,8 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
       } catch (error) {
         console.error('Error creating staff account:', error);
         showMessage('Error creating staff account. Please check your connection.', 'error');
+      } finally {
+        toast.dismiss(loadingToast);
       }
     };
 
@@ -704,6 +780,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
     if (!editingStaffId) return;
 
     const submitUpdate = async () => {
+      const loadingToast = toast.loading('Updating staff account...');
       try {
         const res = await fetch(getApiUrl(`/api/admin/staff/${editingStaffId}`), {
           method: 'PUT',
@@ -732,6 +809,8 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
         }
       } catch (error) {
         showMessage('Error updating staff account.');
+      } finally {
+        toast.dismiss(loadingToast);
       }
     };
 
@@ -1165,6 +1244,9 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                       </div>
                       <div>
                         <p className="font-serif font-bold text-lg text-[#1a1a1a]">{prod.name}</p>
+                        {prod.description && (
+                          <p className="text-xs text-gray-500 line-clamp-1 mb-1">{prod.description}</p>
+                        )}
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-sm font-medium text-[#d35400]">{formatPrice(prod.price, currency)}</span>
                           <span className="text-gray-300">|</span>
@@ -1211,6 +1293,13 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                               placeholder="Stock"
                             />
                           </div>
+                          <textarea
+                            value={editProdDescription}
+                            onChange={(e) => setEditProdDescription(e.target.value)}
+                            className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#d35400] resize-none"
+                            placeholder="Description (Optional)"
+                            rows={2}
+                          />
                           <div className="flex gap-2">
                             <input
                               type="url"
@@ -1430,7 +1519,25 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
             >
               <div className="flex items-center justify-between mb-8 border-b border-black/5 pb-4">
                 <h2 className="text-xl font-serif font-bold">My Orders & Tracking</h2>
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">{filteredPendingOrders.length} Orders</span>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Filter:</label>
+                    <select 
+                      value={filterMethod}
+                      onChange={(e) => setFilterMethod(e.target.value)}
+                      className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-600 focus:outline-none focus:border-[#d35400]"
+                    >
+                      <option value="all">Active</option>
+                      <option value="PLACED">Placed</option>
+                      <option value="PAID">Paid</option>
+                      <option value="IN_PROGRESS">Preparing</option>
+                      <option value="READY">Ready</option>
+                      <option value="COMPLETED">Completed</option>
+                      <option value="CANCELLED">Cancelled</option>
+                    </select>
+                  </div>
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">{filteredPendingOrders.length} Orders</span>
+                </div>
               </div>
               
               <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
@@ -1453,7 +1560,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                             </span>
                           </div>
                           
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                             <div>
                               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Customer</p>
                               <p className="font-bold text-[#1a1a1a]">{order.guest_name || 'Registered User'}</p>
@@ -1464,7 +1571,29 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                               <p className="font-bold text-[#1a1a1a] uppercase text-sm">{order.payment_method}</p>
                               <p className="text-xs text-gray-500 font-mono">Ref: {order.payment_reference || 'N/A'}</p>
                             </div>
+                            <div>
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Order Type</p>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest ${order.order_type === 'delivery' ? 'bg-purple-50 text-purple-600 border border-purple-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
+                                {order.order_type}
+                              </span>
+                              {order.guest_contact && (
+                                <p className="text-xs text-gray-600 mt-1 font-medium flex items-center gap-1">
+                                  <Phone size={10} /> {order.guest_contact}
+                                </p>
+                              )}
+                            </div>
                           </div>
+
+                          {order.order_type === 'delivery' && order.delivery_address && (
+                            <div className="mb-6 bg-purple-50/50 p-4 rounded-xl border border-purple-100">
+                              <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                                <MapPin size={12} /> Delivery Address
+                              </p>
+                              <p className="text-sm text-purple-900 font-medium leading-relaxed">
+                                {order.delivery_address}
+                              </p>
+                            </div>
+                          )}
 
                           <div className="border-t border-black/5 pt-4">
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Order Items</p>
@@ -1597,15 +1726,26 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                     />
                     <button 
                       onClick={async () => {
-                        const res = await fetch(getApiUrl('/api/admin/settings'), {
-                          method: 'PUT',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`
-                          },
-                          body: JSON.stringify({ key: 'minStockThreshold', value: minStockThreshold })
-                        });
-                        if (res.ok) showMessage('Threshold updated!');
+                        const loadingToast = toast.loading('Updating threshold...');
+                        try {
+                          const res = await fetch(getApiUrl('/api/admin/settings'), {
+                            method: 'PUT',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${localStorage.getItem('token')}`
+                            },
+                            body: JSON.stringify({ key: 'minStockThreshold', value: minStockThreshold })
+                          });
+                          if (res.ok) {
+                            showMessage('Threshold updated!');
+                          } else {
+                            showMessage('Failed to update threshold', 'error');
+                          }
+                        } catch (err) {
+                          showMessage('Connection error', 'error');
+                        } finally {
+                          toast.dismiss(loadingToast);
+                        }
                       }}
                       className="bg-[#1a1a1a] hover:bg-[#d35400] text-white px-4 py-2 rounded-lg text-sm font-bold transition-all"
                     >
@@ -1663,27 +1803,34 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                     </div>
                     <button 
                       onClick={async () => {
-                        const res = await fetch(getApiUrl('/api/auth/me'), {
-                          method: 'PUT',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`
-                          },
-                          body: JSON.stringify({ 
-                            name: profileName, 
-                            contact_info: profileContact, 
-                            profile_image_url: profileImageUrl 
-                          })
-                        });
-                        if (res.ok) {
-                          const updatedUser = await res.json();
-                          showMessage('Profile updated!');
-                          if (onUpdateUser) {
-                            onUpdateUser(updatedUser);
+                        const loadingToast = toast.loading('Updating profile...');
+                        try {
+                          const res = await fetch(getApiUrl('/api/auth/me'), {
+                            method: 'PUT',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${localStorage.getItem('token')}`
+                            },
+                            body: JSON.stringify({ 
+                              name: profileName, 
+                              contact_info: profileContact, 
+                              profile_image_url: profileImageUrl 
+                            })
+                          });
+                          if (res.ok) {
+                            const updatedUser = await res.json();
+                            showMessage('Profile updated!');
+                            if (onUpdateUser) {
+                              onUpdateUser(updatedUser);
+                            }
+                          } else {
+                            const errorData = await res.json().catch(() => ({}));
+                            showMessage(errorData.error || 'Failed to update profile', 'error');
                           }
-                        } else {
-                          const errorData = await res.json().catch(() => ({}));
-                          showMessage(errorData.error || 'Failed to update profile', 'error');
+                        } catch (err) {
+                          showMessage('Error updating profile', 'error');
+                        } finally {
+                          toast.dismiss(loadingToast);
                         }
                       }}
                       className="bg-[#1a1a1a] hover:bg-[#d35400] text-white px-4 py-2 rounded-lg text-sm font-bold transition-all"
@@ -2011,6 +2158,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                         disabled={posCart.length === 0 || isProcessingPos}
                         onClick={async () => {
                           setIsProcessingPos(true);
+                          const loadingToast = toast.loading('Processing POS sale...');
                           try {
                             const total = posCart.reduce((sum, item) => sum + (Number(item.product.price) * item.quantity), 0) * 1.05;
                             const res = await fetch(getApiUrl('/api/orders'), {
@@ -2036,16 +2184,18 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                               setPosOrderSuccess(data.orderId);
                               setPosCart([]);
                               setPosCustomerName('');
+                              toast.success('Sale processed successfully!');
                               fetchData();
                             } else {
                               const err = await res.json();
-                              alert(err.error || 'Failed to process order');
+                              toast.error(err.error || 'Failed to process order');
                             }
                           } catch (error) {
                             console.error('Checkout error:', error);
-                            alert('An error occurred while processing the order');
+                            toast.error('An error occurred while processing the order');
                           } finally {
                             setIsProcessingPos(false);
+                            toast.dismiss(loadingToast);
                           }
                         }}
                         className={`w-full py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${posCart.length === 0 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-[#d35400] text-white shadow-lg hover:shadow-xl'}`}
@@ -2119,6 +2269,16 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                   />
                 </div>
               </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Description (Optional)</label>
+                <textarea
+                  placeholder="Describe the product..."
+                  value={newProdDescription}
+                  onChange={(e) => setNewProdDescription(e.target.value)}
+                  className="w-full bg-white border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:border-[#d35400] transition-colors resize-none"
+                  rows={2}
+                />
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Department</label>
@@ -2187,6 +2347,9 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                       </div>
                       <div>
                         <p className="font-serif font-bold text-lg text-[#1a1a1a]">{prod.name}</p>
+                        {prod.description && (
+                          <p className="text-xs text-gray-500 line-clamp-1 mb-1">{prod.description}</p>
+                        )}
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-sm font-medium text-[#d35400]">{formatPrice(prod.price, currency)}</span>
                           <span className="text-gray-300">|</span>
@@ -2233,6 +2396,13 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                               placeholder="Stock"
                             />
                           </div>
+                          <textarea
+                            value={editProdDescription}
+                            onChange={(e) => setEditProdDescription(e.target.value)}
+                            className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#d35400] resize-none"
+                            placeholder="Description (Optional)"
+                            rows={2}
+                          />
                           <div className="flex gap-2">
                             <input
                               type="url"
@@ -2533,6 +2703,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                         <th className="pb-4 px-4">Customer</th>
                         <th className="pb-4 px-4">Amount</th>
                         <th className="pb-4 px-4">Type</th>
+                        <th className="pb-4 px-4">Status</th>
                         <th className="pb-4 px-4">Date</th>
                       </tr>
                     </thead>
@@ -2545,6 +2716,17 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                           <td className="py-4 px-4">
                             <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest ${order.order_type === 'delivery' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}>
                               {order.order_type}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest ${
+                              order.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' :
+                              order.status === 'CANCELLED' ? 'bg-red-50 text-red-600' :
+                              order.status === 'READY' ? 'bg-blue-50 text-blue-600' :
+                              order.status === 'IN_PROGRESS' ? 'bg-amber-50 text-amber-600' :
+                              'bg-gray-100 text-gray-600'
+                            }`}>
+                              {order.status || 'PLACED'}
                             </span>
                           </td>
                           <td className="py-4 px-4 text-gray-500">{new Date(order.created_at).toLocaleDateString()}</td>

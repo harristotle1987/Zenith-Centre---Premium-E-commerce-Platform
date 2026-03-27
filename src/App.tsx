@@ -12,6 +12,7 @@ import { Footer } from './components/Footer';
 import { ProductModal } from './components/ProductModal';
 import { getApiUrl } from './utils/api';
 import { Currency } from './utils/currency';
+import { Toaster, toast } from 'sonner';
 
 export default function App() {
   const [activeDepartment, setActiveDepartment] = useState('All');
@@ -19,8 +20,24 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdminView, setIsAdminView] = useState(false);
-  const [profileTab, setProfileTab] = useState<'info' | 'orders' | 'admin' | null>(null);
+  const [isAdminView, setIsAdminView] = useState(() => {
+    return localStorage.getItem('isAdminView') === 'true';
+  });
+  const [profileTab, setProfileTab] = useState<'info' | 'orders' | 'admin' | null>(() => {
+    return localStorage.getItem('profileTab') as 'info' | 'orders' | 'admin' | null;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('isAdminView', isAdminView.toString());
+  }, [isAdminView]);
+
+  useEffect(() => {
+    if (profileTab) {
+      localStorage.setItem('profileTab', profileTab);
+    } else {
+      localStorage.removeItem('profileTab');
+    }
+  }, [profileTab]);
   const [currency, setCurrency] = useState<Currency>((localStorage.getItem('currency') as Currency) || 'NGN');
   
   // Auth State
@@ -68,6 +85,10 @@ export default function App() {
     setProfileTab(null);
     setCartItems([]);
     localStorage.removeItem('cartItems');
+    localStorage.removeItem('isAdminView');
+    localStorage.removeItem('profileTab');
+    localStorage.removeItem('adminActiveTab');
+    localStorage.removeItem('profileActiveTab');
   };
 
   const handleCurrencyChange = (newCurrency: Currency) => {
@@ -83,8 +104,10 @@ export default function App() {
       
       const existing = prev.find(item => item.cartItemId === cartItemId);
       if (existing) {
+        toast.success(`Updated ${product.name} in cart`);
         return prev.map(item => item.cartItemId === cartItemId ? { ...item, quantity: item.quantity + quantity } : item);
       }
+      toast.success(`Added ${product.name} to cart`);
       return [...prev, { ...product, cartItemId, quantity, customizations }];
     });
   };
@@ -215,6 +238,7 @@ export default function App() {
         onUpdateUser={(updatedUser) => setUser(updatedUser)}
         currency={currency}
         initialTab={profileTab}
+        onTabChange={(tab) => setProfileTab(tab)}
         cartItems={cartItems}
       />
     );
@@ -353,6 +377,7 @@ export default function App() {
           }
         }} 
       />
+      <Toaster position="top-right" richColors />
     </div>
   );
 }

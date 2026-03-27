@@ -89,8 +89,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, on
               
               <div className="space-y-4 mb-8">
                 <p className="text-gray-600 leading-relaxed">
-                  Experience the finest quality with our {product.name}. Sourced directly from premium producers, 
-                  this selection represents the pinnacle of taste and freshness in our {product.department} department.
+                  {product.description || `Experience the finest quality with our ${product.name}. Sourced directly from premium producers, this selection represents the pinnacle of taste and freshness in our ${product.department} department.`}
                 </p>
                 
                 <div className="grid grid-cols-2 gap-4">
