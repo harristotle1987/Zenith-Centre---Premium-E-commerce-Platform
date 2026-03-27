@@ -32,18 +32,18 @@ Zenith Centre is a sophisticated, full-stack e-commerce and Point of Sale (POS) 
 ## 🛠️ Tech Stack
 
 ### Frontend
-- **Framework:** React 18 with TypeScript
-- **Styling:** Tailwind CSS
+- **Framework:** React 19 with TypeScript
+- **Styling:** Tailwind CSS 4
 - **Animations:** Motion (Framer Motion)
 - **Icons:** Lucide React
 - **State Management:** React Hooks (Context/State)
-- **Payments:** React Paystack
+- **Payments:** React Paystack (v6.0.0)
 
 ### Backend
 - **Runtime:** Node.js (Express)
 - **Database:** PostgreSQL (Neon)
 - **Real-time:** Socket.io
-- **Authentication:** JWT, Bcrypt.js, Google Auth Library
+- **Authentication:** JWT, Bcryptjs, Google Auth Library
 - **Validation:** Custom middleware for role-based authorization
 
 ---
@@ -93,8 +93,9 @@ APP_URL=http://localhost:3000
    ```
 
 2. **Install dependencies:**
+   Due to React 19 peer dependency requirements for some packages, use the following command:
    ```bash
-   npm install
+   npm install --legacy-peer-deps
    ```
 
 3. **Initialize the Database:**
@@ -108,9 +109,27 @@ APP_URL=http://localhost:3000
 
 ---
 
+## 🚀 Deployment (Vercel)
+
+When deploying to Vercel, ensure the following configuration is set in your **Project Settings**:
+
+1. **Install Command:**
+   ```bash
+   npm install --legacy-peer-deps
+   ```
+2. **Build Command:**
+   ```bash
+   npm run build
+   ```
+3. **Environment Variables:**
+   Ensure all variables from your `.env` file are added to the Vercel dashboard.
+
+---
+
 ## 🔒 Security & Performance
 - **Data Integrity:** All sensitive operations are wrapped in database transactions.
-- **Security:** Passwords are never stored in plain text (Bcrypt). API endpoints are protected by JWT and role-specific middleware.
+- **Password Hashing:** Industry-standard `bcryptjs` is used for all user and staff passwords.
+- **Authentication:** Secure JWT-based sessions with role-specific middleware protection.
 - **Optimized Assets:** Images are loaded with lazy-loading and appropriate referrer policies.
 - **Scalability:** Designed with a clean separation of concerns between the Express API and React frontend.
 
