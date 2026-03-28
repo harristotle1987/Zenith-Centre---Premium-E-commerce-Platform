@@ -4,6 +4,7 @@ import { Currency } from '../utils/currency';
 import { CurrencyMenu } from './navbar/CurrencyMenu';
 import { UserMenu } from './navbar/UserMenu';
 import { HamburgerMenu } from './navbar/HamburgerMenu';
+import { Logo } from './Logo';
 
 interface NavbarProps {
   departments: string[];
@@ -54,6 +55,7 @@ export function Navbar({
                 <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-0 sm:gap-2 group cursor-pointer">
+                <Logo className="w-6 h-6 sm:w-8 sm:h-8 mr-1" />
                 <span className="text-lg sm:text-2xl font-serif font-black tracking-tighter text-[#1a1a1a] uppercase leading-none group-hover:text-[#d35400] transition-colors">Zenith</span>
                 <span className="text-[8px] sm:text-[10px] font-bold tracking-[0.2em] text-[#d35400] uppercase leading-none sm:mt-1">Centre</span>
               </div>

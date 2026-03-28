@@ -115,46 +115,69 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, on
 
               {/* Customizations */}
               <div className="space-y-4 mb-8">
-                {product.department === 'Coffee' || product.department === 'Tea & Other' ? (
-                  <>
-                    <div>
-                      <p className="text-xs font-bold text-gray-400 uppercase mb-2">Size</p>
-                      <div className="flex gap-2">
-                        {['Small', 'Medium', 'Large'].map(size => (
-                          <button
-                            key={size}
-                            onClick={() => handleCustomizationChange('size', size)}
-                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                              customizations.size === size 
-                                ? 'bg-[#1a1a1a] text-white' 
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
-                          >
-                            {size}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-gray-400 uppercase mb-2">Milk</p>
+                {product.options && Object.keys(product.options).length > 0 ? (
+                  Object.entries(product.options).map(([key, values]) => (
+                    <div key={key}>
+                      <p className="text-xs font-bold text-gray-400 uppercase mb-2">{key}</p>
                       <div className="flex flex-wrap gap-2">
-                        {['Whole', 'Skim', 'Oat', 'Almond', 'Soy'].map(milk => (
+                        {Array.isArray(values) && values.map(value => (
                           <button
-                            key={milk}
-                            onClick={() => handleCustomizationChange('milk', milk)}
+                            key={value}
+                            onClick={() => handleCustomizationChange(key, value)}
                             className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                              customizations.milk === milk 
+                              customizations[key] === value 
                                 ? 'bg-[#1a1a1a] text-white' 
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                           >
-                            {milk}
+                            {value}
                           </button>
                         ))}
                       </div>
                     </div>
-                  </>
-                ) : null}
+                  ))
+                ) : (
+                  (product.department === 'Coffee' || product.department === 'Tea & Other') ? (
+                    <>
+                      <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase mb-2">Size</p>
+                        <div className="flex gap-2">
+                          {['Small', 'Medium', 'Large'].map(size => (
+                            <button
+                              key={size}
+                              onClick={() => handleCustomizationChange('size', size)}
+                              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                                customizations.size === size 
+                                  ? 'bg-[#1a1a1a] text-white' 
+                                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                              }`}
+                            >
+                              {size}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase mb-2">Milk</p>
+                        <div className="flex flex-wrap gap-2">
+                          {['Whole', 'Skim', 'Oat', 'Almond', 'Soy'].map(milk => (
+                            <button
+                              key={milk}
+                              onClick={() => handleCustomizationChange('milk', milk)}
+                              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                                customizations.milk === milk 
+                                  ? 'bg-[#1a1a1a] text-white' 
+                                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                              }`}
+                            >
+                              {milk}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  ) : null
+                )}
 
                 <div>
                   <p className="text-xs font-bold text-gray-400 uppercase mb-2">Quantity</p>

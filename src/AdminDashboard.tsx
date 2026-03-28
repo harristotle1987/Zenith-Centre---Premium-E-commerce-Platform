@@ -2,10 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { io } from 'socket.io-client';
 import { Product } from './constants/products';
-import { Trash2, Plus, Database, TrendingUp, Users, Package, Layers, DollarSign, Calendar, User as UserIcon, ShoppingBag, Menu, X, ChevronDown, Check, Edit, Activity, Settings, Search, MapPin, Phone, Shield } from 'lucide-react';
+import { Trash2, Plus, Database, TrendingUp, Users, Package, Layers, DollarSign, Calendar, User as UserIcon, ShoppingBag, Menu, X, ChevronDown, Check, Edit, Activity, Settings, Search, MapPin, Phone, Shield, Printer } from 'lucide-react';
 import { getApiUrl } from './utils/api';
 import { Currency, formatPrice } from './utils/currency';
 import { toast } from 'sonner';
+import { Logo } from './components/Logo';
 
 interface AdminDashboardProps {
   user: any;
@@ -23,6 +24,11 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
     localStorage.setItem('adminActiveTab', activeTab);
   }, [activeTab]);
   const [minStockThreshold, setMinStockThreshold] = useState(5);
+  const [heroImageUrl, setHeroImageUrl] = useState('');
+  const [featuredImageUrl1, setFeaturedImageUrl1] = useState('');
+  const [featuredImageUrl2, setFeaturedImageUrl2] = useState('');
+  const [featuredImageUrl3, setFeaturedImageUrl3] = useState('');
+  const [featuredImageUrl4, setFeaturedImageUrl4] = useState('');
   const [profileImageUrl, setProfileImageUrl] = useState(user?.profile_image_url || '');
   const [profileName, setProfileName] = useState(user?.name || '');
   const [profileContact, setProfileContact] = useState(user?.contact_info || '');
@@ -34,14 +40,26 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
   const [transactions, setTransactions] = useState<any[]>([]);
   const [allActivities, setAllActivities] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [activitySearch, setActivitySearch] = useState('');
+  const [activityRoleFilter, setActivityRoleFilter] = useState('all');
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [filterMethod, setFilterMethod] = useState('all');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
+  const [pendingSearchTerm, setPendingSearchTerm] = useState('');
 
   const filteredPendingOrders = useMemo(() => {
     let filtered = pendingOrders;
     
+    if (pendingSearchTerm) {
+      const term = pendingSearchTerm.toLowerCase();
+      filtered = filtered.filter(order => 
+        (order.order_number && order.order_number.toLowerCase().includes(term)) ||
+        (order.guest_name && order.guest_name.toLowerCase().includes(term)) ||
+        (order.guest_email && order.guest_email.toLowerCase().includes(term))
+      );
+    }
+
     if (filterMethod !== 'all') {
       filtered = filtered.filter(order => order.status && order.status.toUpperCase() === filterMethod.toUpperCase());
     } else {
@@ -54,7 +72,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
     }
     
     return filtered;
-  }, [pendingOrders, filterMethod]);
+  }, [pendingOrders, filterMethod, pendingSearchTerm]);
   
   // POS State
   const [posCart, setPosCart] = useState<{ product: Product, quantity: number }[]>([]);
@@ -64,8 +82,10 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
   const [posCustomerEmail, setPosCustomerEmail] = useState('');
   const [posCustomerContact, setPosCustomerContact] = useState('');
   const [isProcessingPos, setIsProcessingPos] = useState(false);
-  const [posOrderSuccess, setPosOrderSuccess] = useState<number | null>(null);
+  const [posOrderSuccess, setPosOrderSuccess] = useState<string | number | null>(null);
+  const [posReceiptData, setPosReceiptData] = useState<any>(null);
   const [posOrderType, setPosOrderType] = useState<'in-shop' | 'take-away' | 'delivery'>('in-shop');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Accounts State
   const [accountsData, setAccountsData] = useState<{ totalInflow: number, recentOrders: any[] }>({ totalInflow: 0, recentOrders: [] });
@@ -150,8 +170,8 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
     reader.readAsDataURL(file);
   };
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const fetchWithLogging = async (url: string, options?: RequestInit) => {
         try {
@@ -180,7 +200,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
       setDepartments(depts.filter((d: string) => d !== 'All'));
       setProducts(prods);
 
-      if (user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'secretary' || user?.role === 'staff') {
+      if (user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'secretary' || user?.role === 'staff' || user?.role === 'manager' || user?.role === 'counter_staff') {
         const [accRes, transRes] = await Promise.all([
           fetchWithLogging(getApiUrl('/api/admin/accounts'), { headers }),
           fetchWithLogging(getApiUrl('/api/admin/transactions'), { headers })
@@ -189,15 +209,20 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
         if (transRes.ok) setTransactions(await transRes.json());
       }
 
-      if (user?.role === 'super_admin') {
+      if (user?.role === 'super_admin' || user?.role === 'manager') {
         const settingsRes = await fetchWithLogging(getApiUrl('/api/admin/settings'), { headers });
         if (settingsRes.ok) {
           const settings = await settingsRes.json();
           if (settings.minStockThreshold) setMinStockThreshold(Number(settings.minStockThreshold));
+          if (settings.heroImageUrl) setHeroImageUrl(settings.heroImageUrl);
+          if (settings.featuredImageUrl1) setFeaturedImageUrl1(settings.featuredImageUrl1);
+          if (settings.featuredImageUrl2) setFeaturedImageUrl2(settings.featuredImageUrl2);
+          if (settings.featuredImageUrl3) setFeaturedImageUrl3(settings.featuredImageUrl3);
+          if (settings.featuredImageUrl4) setFeaturedImageUrl4(settings.featuredImageUrl4);
         }
       }
 
-      if (user?.role === 'super_admin') {
+      if (user?.role === 'super_admin' || user?.role === 'manager') {
         const [staffRes, activitiesRes, usersRes] = await Promise.all([
           fetchWithLogging(getApiUrl('/api/admin/staff'), { headers }),
           fetchWithLogging(getApiUrl('/api/admin/activities'), { headers }),
@@ -209,7 +234,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
       }
 
       // Fetch pending orders for all allowed roles
-      if (user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'secretary' || user?.role === 'staff') {
+      if (user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'secretary' || user?.role === 'staff' || user?.role === 'manager' || user?.role === 'counter_staff') {
         const [ordersRes, rateRes] = await Promise.all([
           fetchWithLogging(getApiUrl('/api/admin/orders'), { headers }),
           fetchWithLogging(getApiUrl('/api/exchange-rate'))
@@ -232,7 +257,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
   useEffect(() => {
     if (user?.role === 'accountant') {
       setActiveTab('accounts');
-    } else if (user?.role === 'secretary' || user?.role === 'staff') {
+    } else if (user?.role === 'secretary' || user?.role === 'staff' || user?.role === 'manager' || user?.role === 'counter_staff') {
       setActiveTab('products');
     }
     fetchData();
@@ -240,12 +265,12 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
     const socket = io(getApiUrl(''));
     
     socket.on('newOrder', () => {
-      fetchData();
+      fetchData(true);
       showMessage('New order received!', 'success');
     });
 
     socket.on('orderStatusUpdate', () => {
-      fetchData();
+      fetchData(true);
     });
 
     return () => {
@@ -704,6 +729,132 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
     setShowConfirm(true);
   };
 
+  const handlePrintTransactionReceipt = (transaction: any) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Please allow popups to print receipts');
+      return;
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Zenith Receipt - ${transaction.order_number || transaction.order_id}</title>
+          <style>
+            @page { margin: 0; }
+            body { 
+              font-family: 'Courier New', Courier, monospace; 
+              padding: 15px; 
+              width: 280px; 
+              margin: 0 auto; 
+              color: #000;
+              background: #fff;
+              line-height: 1.2;
+            }
+            .header { text-align: center; margin-bottom: 15px; }
+            .logo { font-size: 22px; font-weight: 900; letter-spacing: 2px; margin-bottom: 2px; }
+            .address { font-size: 10px; margin-bottom: 10px; text-transform: uppercase; }
+            .order-info { font-size: 12px; margin-bottom: 10px; text-align: left; }
+            .order-number { font-size: 20px; font-weight: 900; margin: 8px 0; border: 2px solid #000; padding: 6px 12px; display: inline-block; letter-spacing: 1px; }
+            .divider { border-top: 2px dashed #000; margin: 10px 0; }
+            .items-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+            .items-table th { text-align: left; font-size: 11px; border-bottom: 1px solid #000; padding-bottom: 4px; }
+            .items-table td { padding: 4px 0; font-size: 12px; vertical-align: top; }
+            .price-col { text-align: right; }
+            .totals-section { margin-top: 10px; }
+            .total-row { display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 12px; }
+            .grand-total { font-weight: bold; font-size: 16px; margin-top: 5px; border-top: 1px solid #000; padding-top: 5px; }
+            .footer { text-align: center; margin-top: 25px; font-size: 10px; font-style: italic; }
+            .no-print { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
+            .btn { padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; font-family: sans-serif; }
+            .btn-primary { background: #d35400; color: white; }
+            .btn-secondary { background: #eee; color: #333; margin-left: 8px; }
+            @media print {
+              .no-print { display: none; }
+              body { width: 100%; padding: 10px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">ZENITH</div>
+            <div class="address">Premium Dining Experience</div>
+            <div class="order-number">${transaction.order_number || transaction.order_id || transaction.id}</div>
+            <div class="order-info">
+              <div>Date: ${new Date(transaction.created_at).toLocaleString()}</div>
+              ${transaction.customer_name ? `<div>Customer: ${transaction.customer_name}</div>` : ''}
+              <div>Type: ${transaction.order_type || 'In-Shop'}</div>
+              ${transaction.staff_name ? `<div>Served by: ${transaction.staff_name}</div>` : ''}
+            </div>
+          </div>
+          
+          <div class="divider"></div>
+          
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>ITEM</th>
+                <th style="text-align: center;">QTY</th>
+                <th class="price-col">PRICE</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${transaction.items?.map((item: any) => `
+                <tr>
+                  <td>${item.product_name}</td>
+                  <td style="text-align: center;">${item.quantity}</td>
+                  <td class="price-col">${formatPrice(Number(item.price) * item.quantity, currency, exchangeRate)}</td>
+                </tr>
+              `).join('') || ''}
+            </tbody>
+          </table>
+          
+          <div class="divider"></div>
+          
+          <div class="totals-section">
+            <div class="total-row grand-total">
+              <span>TOTAL</span>
+              <span>${formatPrice(Number(transaction.amount), currency, exchangeRate)}</span>
+            </div>
+            <div class="total-row" style="margin-top: 8px; font-size: 11px;">
+              <span>Payment Method:</span>
+              <span style="text-transform: uppercase;">${transaction.payment_method}</span>
+            </div>
+          </div>
+          
+          <div class="divider"></div>
+          
+          <div class="footer">
+            <div>Thank you for dining with us!</div>
+            <div style="margin-top: 5px; font-size: 8px; opacity: 0.6;">ZENITH POS v2.0</div>
+          </div>
+
+          <div class="no-print">
+            <button class="btn btn-primary" onclick="window.print()">PRINT RECEIPT</button>
+            <button class="btn btn-secondary" onclick="window.close()">CLOSE</button>
+          </div>
+
+          <script>
+            function startPrint() {
+              setTimeout(function() {
+                window.print();
+              }, 1000);
+            }
+            if (document.readyState === 'complete') {
+              startPrint();
+            } else {
+              window.onload = startPrint;
+            }
+          </script>
+        </body>
+      </html>
+    `;
+    
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   const addStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -893,6 +1044,8 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                   >
                     <option value="accountant">Accountant</option>
                     <option value="secretary">Secretary</option>
+                    <option value="manager">Manager</option>
+                    <option value="counter_staff">Counter Staff</option>
                     <option value="staff">General Staff</option>
                     <option value="super_admin">Super Admin</option>
                   </select>
@@ -1111,8 +1264,8 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                         <tr key={idx}>
                           <td className="py-3 px-4 font-bold text-[#1a1a1a] sticky left-0 bg-gray-50 z-10">{item.product_name}</td>
                           <td className="py-3 px-4 text-center text-gray-500">{item.quantity}</td>
-                          <td className="py-3 px-4 text-right text-gray-500">{formatPrice(item.price, currency, exchangeRate)}</td>
-                          <td className="py-3 px-4 text-right font-bold text-[#1a1a1a]">{formatPrice(item.price * item.quantity, currency, exchangeRate)}</td>
+                          <td className="py-3 px-4 text-right text-gray-500">{formatPrice(Number(item.price), currency, exchangeRate)}</td>
+                          <td className="py-3 px-4 text-right font-bold text-[#1a1a1a]">{formatPrice(Number(item.price) * item.quantity, currency, exchangeRate)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1120,7 +1273,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                       <tr className="bg-white/50">
                         <td colSpan={3} className="py-4 px-4 text-right font-bold text-gray-400 uppercase tracking-widest text-[10px]">Grand Total</td>
                         <td className="py-4 px-4 text-right font-bold text-emerald-600 text-lg">
-                          {formatPrice(selectedTransaction.amount, currency, exchangeRate)}
+                          {formatPrice(Number(selectedTransaction.amount), currency, exchangeRate)}
                         </td>
                       </tr>
                     </tfoot>
@@ -1153,7 +1306,13 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
             </div>
 
             {/* Modal Footer */}
-            <div className="p-6 border-t border-black/5 bg-gray-50/50 flex justify-end">
+            <div className="p-6 border-t border-black/5 bg-gray-50/50 flex justify-end gap-4">
+              <button 
+                onClick={() => handlePrintTransactionReceipt(selectedTransaction)}
+                className="px-8 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2"
+              >
+                <Printer size={18} /> Print Receipt
+              </button>
               <button 
                 onClick={() => setShowTransactionModal(false)}
                 className="px-8 py-3 bg-[#1a1a1a] text-white rounded-xl font-bold hover:bg-[#d35400] transition-all shadow-lg shadow-black/5"
@@ -1248,7 +1407,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                           <p className="text-xs text-gray-500 line-clamp-1 mb-1">{prod.description}</p>
                         )}
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="text-sm font-medium text-[#d35400]">{formatPrice(prod.price, currency)}</span>
+                          <span className="text-sm font-medium text-[#d35400]">{formatPrice(Number(prod.price), currency)}</span>
                           <span className="text-gray-300">|</span>
                           <span className="text-xs text-gray-500 uppercase tracking-wider">{prod.department}</span>
                         </div>
@@ -1388,7 +1547,10 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
 
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <h1 className="text-3xl font-serif font-bold tracking-tight text-[#1a1a1a]">Zenith Admin</h1>
+          <div className="flex items-center gap-3">
+            <Logo className="w-8 h-8 sm:w-10 sm:h-10" />
+            <h1 className="text-3xl font-serif font-bold tracking-tight text-[#1a1a1a]">Zenith Admin</h1>
+          </div>
           <div className="flex items-center gap-3">
             <button 
               onClick={checkDbHealth}
@@ -1420,7 +1582,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
           {isMenuOpen && (
             <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl border border-black/5 shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
               <div className="flex flex-col p-2">
-                {(user?.role === 'super_admin' || user?.role === 'secretary' || user?.role === 'staff' || user?.role === 'accountant') && (
+                {(user?.role === 'super_admin' || user?.role === 'secretary' || user?.role === 'staff' || user?.role === 'accountant' || user?.role === 'manager' || user?.role === 'counter_staff') && (
                   <button 
                     onClick={() => { setActiveTab('pos'); setIsMenuOpen(false); }}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'pos' ? 'bg-[#d35400] text-white' : 'text-gray-600 hover:bg-gray-50'}`}
@@ -1428,7 +1590,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                     <ShoppingBag size={18} /> Take Order
                   </button>
                 )}
-                {(user?.role === 'super_admin' || user?.role === 'secretary' || user?.role === 'staff') && (
+                {(user?.role === 'super_admin' || user?.role === 'secretary' || user?.role === 'staff' || user?.role === 'manager' || user?.role === 'counter_staff') && (
                   <>
                     <button 
                       onClick={() => { setActiveTab('products'); setIsMenuOpen(false); }}
@@ -1444,7 +1606,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                     </button>
                   </>
                 )}
-                {(user?.role === 'super_admin' || user?.role === 'accountant') && (
+                {(user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'manager') && (
                   <button 
                     onClick={() => { setActiveTab('accounts'); setIsMenuOpen(false); }}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'accounts' ? 'bg-[#d35400] text-white' : 'text-gray-600 hover:bg-gray-50'}`}
@@ -1452,7 +1614,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                     <TrendingUp size={18} /> Accounts
                   </button>
                 )}
-                {(user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'secretary' || user?.role === 'staff') && (
+                {(user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'secretary' || user?.role === 'staff' || user?.role === 'manager' || user?.role === 'counter_staff') && (
                   <>
                     <button 
                       onClick={() => { setActiveTab('pending_orders'); setIsMenuOpen(false); }}
@@ -1468,7 +1630,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                     </button>
                   </>
                 )}
-                {(user?.role === 'super_admin' || user?.role === 'staff') && (
+                {(user?.role === 'super_admin' || user?.role === 'staff' || user?.role === 'manager' || user?.role === 'counter_staff') && (
                   <button 
                     onClick={() => { setActiveTab('staff'); setIsMenuOpen(false); }}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'staff' ? 'bg-[#d35400] text-white' : 'text-gray-600 hover:bg-gray-50'}`}
@@ -1476,7 +1638,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                     <Users size={18} /> Staff
                   </button>
                 )}
-                {user?.role === 'super_admin' && (
+                {(user?.role === 'super_admin' || user?.role === 'manager') && (
                   <button 
                     onClick={() => { setActiveTab('activities'); setIsMenuOpen(false); }}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'activities' ? 'bg-[#d35400] text-white' : 'text-gray-600 hover:bg-gray-50'}`}
@@ -1484,7 +1646,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                     <Activity size={18} /> Activities
                   </button>
                 )}
-                {user?.role === 'super_admin' && (
+                {(user?.role === 'super_admin' || user?.role === 'manager') && (
                   <button 
                     onClick={() => { setActiveTab('settings'); setIsMenuOpen(false); }}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'settings' ? 'bg-[#d35400] text-white' : 'text-gray-600 hover:bg-gray-50'}`}
@@ -1509,7 +1671,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
 
         <div className="space-y-8">
           <AnimatePresence mode="wait">
-            {activeTab === 'pending_orders' && (user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'secretary' || user?.role === 'staff') && (
+            {activeTab === 'pending_orders' && (user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'secretary' || user?.role === 'staff' || user?.role === 'manager' || user?.role === 'counter_staff') && (
             <motion.div 
               key="pending_orders"
               initial={{ opacity: 0, y: 20 }}
@@ -1517,9 +1679,19 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
               exit={{ opacity: 0, y: -20 }}
               className="bg-white p-6 rounded-2xl border border-black/5 shadow-sm"
             >
-              <div className="flex items-center justify-between mb-8 border-b border-black/5 pb-4">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 border-b border-black/5 pb-4">
                 <h2 className="text-xl font-serif font-bold">My Orders & Tracking</h2>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full md:w-auto">
+                  <div className="relative w-full md:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input 
+                      type="text"
+                      placeholder="Track Order (ZN...)"
+                      value={pendingSearchTerm}
+                      onChange={(e) => setPendingSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-black/5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#d35400]/20 transition-all"
+                    />
+                  </div>
                   <div className="flex items-center gap-2">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Filter:</label>
                     <select 
@@ -1553,7 +1725,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-4">
                             <span className="text-xs font-bold bg-amber-50 text-amber-600 px-3 py-1 rounded-full uppercase tracking-widest">
-                              #{order.id}
+                              {order.order_number || `#${order.id}`}
                             </span>
                             <span className="text-xs font-bold bg-gray-100 text-gray-600 px-3 py-1 rounded-full uppercase tracking-widest">
                               {new Date(order.created_at).toLocaleString()}
@@ -1629,7 +1801,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                         <div className="md:w-64 flex flex-col justify-between border-t md:border-t-0 md:border-l border-black/5 pt-6 md:pt-0 md:pl-6">
                           <div className="text-right mb-6">
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Total Amount</p>
-                            <p className="text-3xl font-serif font-bold text-[#d35400]">{formatPrice(order.total_amount, currency, exchangeRate)}</p>
+                            <p className="text-3xl font-serif font-bold text-[#d35400]">{formatPrice(Number(order.total_amount), currency, exchangeRate)}</p>
                           </div>
                           
                           <div className="flex flex-col gap-2">
@@ -1660,7 +1832,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                               <Check size={18} />
                               {order.status === 'COMPLETED' ? 'Completed' : 'Mark as Done'}
                             </button>
-                            {(user?.role === 'super_admin' || user?.role === 'accountant') && (
+                            {(user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'manager') && (
                               <button
                                 onClick={() => deleteOrder(order.id)}
                                 className="w-full bg-white hover:bg-red-50 text-red-500 border border-red-100 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
@@ -1679,7 +1851,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
             </motion.div>
           )}
 
-          {activeTab === 'settings' && user?.role === 'super_admin' && (
+          {activeTab === 'settings' && (user?.role === 'super_admin' || user?.role === 'manager') && (
             <motion.div 
               key="settings"
               initial={{ opacity: 0, y: 20 }}
@@ -1752,6 +1924,60 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                       Update
                     </button>
                   </div>
+                </div>
+
+                {/* Homepage Images */}
+                <div className="p-4 bg-gray-50 rounded-xl border border-black/5 space-y-4">
+                  <div>
+                    <label className="text-sm font-bold text-gray-600 block mb-1">Homepage Images</label>
+                    <p className="text-xs text-gray-400 mb-4">Update the images displayed on the landing page</p>
+                  </div>
+                  
+                  {[
+                    { label: 'Hero Image URL', state: heroImageUrl, setter: setHeroImageUrl, key: 'heroImageUrl' },
+                    { label: 'Featured Image 1', state: featuredImageUrl1, setter: setFeaturedImageUrl1, key: 'featuredImageUrl1' },
+                    { label: 'Featured Image 2', state: featuredImageUrl2, setter: setFeaturedImageUrl2, key: 'featuredImageUrl2' },
+                    { label: 'Featured Image 3', state: featuredImageUrl3, setter: setFeaturedImageUrl3, key: 'featuredImageUrl3' },
+                    { label: 'Featured Image 4', state: featuredImageUrl4, setter: setFeaturedImageUrl4, key: 'featuredImageUrl4' },
+                  ].map((img) => (
+                    <div key={img.key} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+                      <label className="text-xs font-bold text-gray-500 w-32">{img.label}</label>
+                      <input 
+                        type="text" 
+                        value={img.state}
+                        onChange={(e) => img.setter(e.target.value)}
+                        placeholder="https://..."
+                        className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#d35400] w-full"
+                      />
+                      <button 
+                        onClick={async () => {
+                          const loadingToast = toast.loading(`Updating ${img.label}...`);
+                          try {
+                            const res = await fetch(getApiUrl('/api/admin/settings'), {
+                              method: 'PUT',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                              },
+                              body: JSON.stringify({ key: img.key, value: img.state })
+                            });
+                            if (res.ok) {
+                              showMessage(`${img.label} updated!`);
+                            } else {
+                              showMessage(`Failed to update ${img.label}`, 'error');
+                            }
+                          } catch (err) {
+                            showMessage('Connection error', 'error');
+                          } finally {
+                            toast.dismiss(loadingToast);
+                          }
+                        }}
+                        className="bg-[#1a1a1a] hover:bg-[#d35400] text-white px-4 py-2 rounded-lg text-sm font-bold transition-all w-full sm:w-auto"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Profile Settings */}
@@ -1843,7 +2069,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
             </motion.div>
           )}
 
-          {activeTab === 'pos' && (user?.role === 'super_admin' || user?.role === 'secretary' || user?.role === 'staff' || user?.role === 'accountant') && (
+          {activeTab === 'pos' && (user?.role === 'super_admin' || user?.role === 'secretary' || user?.role === 'staff' || user?.role === 'accountant' || user?.role === 'manager' || user?.role === 'counter_staff') && (
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1863,6 +2089,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                         setPosCustomerEmail('');
                         setPosCustomerContact('');
                         setPosOrderSuccess(null);
+                        setPosReceiptData(null);
                       }}
                       className="text-[10px] font-bold text-[#d35400] bg-[#d35400]/10 px-3 py-1.5 rounded-full uppercase tracking-widest hover:bg-[#d35400]/20 transition-all flex items-center gap-1.5"
                     >
@@ -1968,20 +2195,155 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                       <Check size={32} />
                     </motion.div>
                     <h3 className="text-xl font-bold mb-2">Order Completed!</h3>
-                    <p className="text-gray-500 mb-6">Order #{posOrderSuccess} has been recorded successfully.</p>
-                    <motion.button 
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => {
-                        setPosOrderSuccess(null);
-                        setPosCustomerName('');
-                        setPosCustomerEmail('');
-                        setPosCustomerContact('');
-                      }}
-                      className="w-full bg-[#1a1a1a] text-white py-3 rounded-xl font-bold hover:bg-[#d35400] transition-colors"
-                    >
-                      New Order
-                    </motion.button>
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 mb-6 w-full">
+                      <p className="text-emerald-800 font-bold text-2xl tracking-wider">{posOrderSuccess}</p>
+                      <p className="text-emerald-600 text-xs mt-1">Order Number</p>
+                    </div>
+                    <div className="flex flex-col gap-3 w-full">
+                      <motion.button 
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          if (!posReceiptData) return;
+                          const printWindow = window.open('', '_blank');
+                          if (!printWindow) return;
+                          
+                          const html = `
+                            <html>
+                              <head>
+                                <title>Zenith Receipt - ${posReceiptData.orderNumber || posReceiptData.orderId}</title>
+                                <style>
+                                  @page { margin: 0; }
+                                  body { 
+                                    font-family: 'Courier New', Courier, monospace; 
+                                    padding: 15px; 
+                                    width: 280px; 
+                                    margin: 0 auto; 
+                                    color: #000;
+                                    background: #fff;
+                                    line-height: 1.2;
+                                  }
+                                  .header { text-align: center; margin-bottom: 15px; }
+                                  .logo { font-size: 22px; font-weight: 900; letter-spacing: 2px; margin-bottom: 2px; }
+                                  .address { font-size: 10px; margin-bottom: 10px; text-transform: uppercase; }
+                                  .order-info { font-size: 12px; margin-bottom: 10px; text-align: left; }
+                                  .order-number { font-size: 20px; font-weight: 900; margin: 8px 0; border: 2px solid #000; padding: 6px 12px; display: inline-block; letter-spacing: 1px; }
+                                  .divider { border-top: 2px dashed #000; margin: 10px 0; }
+                                  .items-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+                                  .items-table th { text-align: left; font-size: 11px; border-bottom: 1px solid #000; padding-bottom: 4px; }
+                                  .items-table td { padding: 4px 0; font-size: 12px; vertical-align: top; }
+                                  .price-col { text-align: right; }
+                                  .totals-section { margin-top: 10px; }
+                                  .total-row { display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 12px; }
+                                  .grand-total { font-weight: bold; font-size: 16px; margin-top: 5px; border-top: 1px solid #000; padding-top: 5px; }
+                                  .footer { text-align: center; margin-top: 25px; font-size: 10px; font-style: italic; }
+                                  .no-print { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
+                                  .btn { padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; font-family: sans-serif; }
+                                  .btn-primary { background: #d35400; color: white; }
+                                  .btn-secondary { background: #eee; color: #333; margin-left: 8px; }
+                                  @media print {
+                                    .no-print { display: none; }
+                                    body { width: 100%; padding: 10px; }
+                                  }
+                                </style>
+                              </head>
+                              <body>
+                                <div class="header">
+                                  <div class="logo">ZENITH</div>
+                                  <div class="address">Premium Dining Experience</div>
+                                  <div class="order-number">${posReceiptData.orderNumber || posReceiptData.orderId}</div>
+                                  <div class="order-info">
+                                    <div>Date: ${posReceiptData.date}</div>
+                                    ${posReceiptData.customerName ? `<div>Customer: ${posReceiptData.customerName}</div>` : ''}
+                                    <div>Type: ${posReceiptData.orderType}</div>
+                                    ${user?.name ? `<div>Served by: ${user.name}</div>` : ''}
+                                  </div>
+                                </div>
+                                
+                                <div class="divider"></div>
+                                
+                                <table class="items-table">
+                                  <thead>
+                                    <tr>
+                                      <th>ITEM</th>
+                                      <th style="text-align: center;">QTY</th>
+                                      <th class="price-col">PRICE</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    ${posReceiptData.items.map((item: any) => `
+                                      <tr>
+                                        <td>${item.product.name}</td>
+                                        <td style="text-align: center;">${item.quantity}</td>
+                                        <td class="price-col">${formatPrice(Number(item.product.price) * item.quantity, currency, exchangeRate)}</td>
+                                      </tr>
+                                    `).join('')}
+                                  </tbody>
+                                </table>
+                                
+                                <div class="divider"></div>
+                                
+                                <div class="totals-section">
+                                  <div class="total-row grand-total">
+                                    <span>TOTAL</span>
+                                    <span>${formatPrice(Number(posReceiptData.total), currency, exchangeRate)}</span>
+                                  </div>
+                                  <div class="total-row" style="margin-top: 8px; font-size: 11px;">
+                                    <span>Payment Method:</span>
+                                    <span style="text-transform: uppercase;">${posReceiptData.paymentMethod}</span>
+                                  </div>
+                                </div>
+                                
+                                <div class="divider"></div>
+                                
+                                <div class="footer">
+                                  <div>Thank you for dining with us!</div>
+                                  <div style="margin-top: 5px; font-size: 8px; opacity: 0.6;">ZENITH POS v2.0</div>
+                                </div>
+
+                                <div class="no-print">
+                                  <button class="btn btn-primary" onclick="window.print()">PRINT RECEIPT</button>
+                                  <button class="btn btn-secondary" onclick="window.close()">CLOSE</button>
+                                </div>
+
+                                <script>
+                                  function startPrint() {
+                                    setTimeout(function() {
+                                      window.print();
+                                    }, 1000);
+                                  }
+                                  if (document.readyState === 'complete') {
+                                    startPrint();
+                                  } else {
+                                    window.onload = startPrint;
+                                  }
+                                </script>
+                              </body>
+                            </html>
+                          `;
+                          
+                          printWindow.document.write(html);
+                          printWindow.document.close();
+                        }}
+                        className="w-full bg-white border-2 border-[#1a1a1a] text-[#1a1a1a] py-3 rounded-xl font-bold hover:bg-gray-50 transition-colors"
+                      >
+                        Print Receipt
+                      </motion.button>
+                      <motion.button 
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          setPosOrderSuccess(null);
+                          setPosReceiptData(null);
+                          setPosCustomerName('');
+                          setPosCustomerEmail('');
+                          setPosCustomerContact('');
+                        }}
+                        className="w-full bg-[#1a1a1a] text-white py-3 rounded-xl font-bold hover:bg-[#d35400] transition-colors"
+                      >
+                        New Order
+                      </motion.button>
+                    </div>
                   </motion.div>
                 ) : (
                   <>
@@ -2147,7 +2509,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                             animate={{ scale: 1, color: '#d35400' }}
                             className="text-[#d35400]"
                           >
-                            {formatPrice(posCart.reduce((sum, item) => sum + (Number(item.product.price) * item.quantity), 0) * 1.05, currency)}
+                            {formatPrice(posCart.reduce((sum, item) => sum + (Number(item.product.price) * item.quantity), 0) * 1.05, currency, exchangeRate)}
                           </motion.span>
                         </div>
                       </motion.div>
@@ -2157,8 +2519,14 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                         whileTap={{ scale: (posCart.length === 0 || isProcessingPos) ? 1 : 0.98 }}
                         disabled={posCart.length === 0 || isProcessingPos}
                         onClick={async () => {
+                          if (posCart.length === 0) return;
+                          
                           setIsProcessingPos(true);
                           const loadingToast = toast.loading('Processing POS sale...');
+                          
+                          const controller = new AbortController();
+                          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
                           try {
                             const total = posCart.reduce((sum, item) => sum + (Number(item.product.price) * item.quantity), 0) * 1.05;
                             const res = await fetch(getApiUrl('/api/orders'), {
@@ -2167,6 +2535,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                                 'Content-Type': 'application/json',
                                 'Authorization': `Bearer ${localStorage.getItem('token')}`
                               },
+                              signal: controller.signal,
                               body: JSON.stringify({
                                 items: posCart.map(item => ({ id: item.product.id, quantity: item.quantity, price: Number(item.product.price) })),
                                 total_amount: total,
@@ -2179,20 +2548,38 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                               })
                             });
                             
+                            clearTimeout(timeoutId);
+                            
                             if (res.ok) {
                               const data = await res.json();
-                              setPosOrderSuccess(data.orderId);
+                              setPosOrderSuccess(data.orderNumber || data.orderId);
+                              setPosReceiptData({
+                                orderId: data.orderId,
+                                orderNumber: data.orderNumber,
+                                items: posCart,
+                                total: total,
+                                customerName: posCustomerName,
+                                paymentMethod: posPaymentMethod,
+                                orderType: posOrderType,
+                                date: new Date().toLocaleString()
+                              });
                               setPosCart([]);
                               setPosCustomerName('');
+                              setPosCustomerEmail('');
+                              setPosCustomerContact('');
                               toast.success('Sale processed successfully!');
                               fetchData();
                             } else {
                               const err = await res.json();
                               toast.error(err.error || 'Failed to process order');
                             }
-                          } catch (error) {
+                          } catch (error: any) {
                             console.error('Checkout error:', error);
-                            toast.error('An error occurred while processing the order');
+                            if (error.name === 'AbortError') {
+                              toast.error('Request timed out. Please check your connection.');
+                            } else {
+                              toast.error('An error occurred while processing the order');
+                            }
                           } finally {
                             setIsProcessingPos(false);
                             toast.dismiss(loadingToast);
@@ -2351,7 +2738,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                           <p className="text-xs text-gray-500 line-clamp-1 mb-1">{prod.description}</p>
                         )}
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="text-sm font-medium text-[#d35400]">{formatPrice(prod.price, currency)}</span>
+                          <span className="text-sm font-medium text-[#d35400]">{formatPrice(Number(prod.price), currency)}</span>
                           <span className="text-gray-300">|</span>
                           <span className="text-xs text-gray-500 uppercase tracking-wider">{prod.department}</span>
                         </div>
@@ -2491,7 +2878,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
           </motion.div>
           ) : null}
 
-          {activeTab === 'transactions' && (user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'secretary' || user?.role === 'staff') && (
+          {activeTab === 'transactions' && (user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'secretary' || user?.role === 'staff' || user?.role === 'manager' || user?.role === 'counter_staff') && (
             <motion.div 
               key="transactions"
               initial={{ opacity: 0, y: 20 }}
@@ -2499,7 +2886,19 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
               exit={{ opacity: 0, y: -20 }}
               className="bg-white p-6 rounded-2xl border border-black/5 shadow-sm"
             >
-              <h2 className="text-xl font-serif font-bold mb-6 border-b border-black/5 pb-4">All Transactions</h2>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-black/5 pb-4">
+                <h2 className="text-xl font-serif font-bold">All Transactions</h2>
+                <div className="relative w-full md:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                  <input 
+                    type="text"
+                    placeholder="Search Order #..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-black/5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#d35400]/20 transition-all"
+                  />
+                </div>
+              </div>
               
               <div className="max-h-[700px] overflow-y-auto pr-2 custom-scrollbar">
                 {/* Desktop Table View */}
@@ -2507,7 +2906,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                 <table className="w-full text-left">
                   <thead>
                     <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-black/5">
-                      <th className="pb-4 px-4">Transaction ID</th>
+                      <th className="pb-4 px-4">Order #</th>
                       <th className="pb-4 px-4">Customer</th>
                       <th className="pb-4 px-4">Email</th>
                       <th className="pb-4 px-4">Items</th>
@@ -2515,13 +2914,18 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                       <th className="pb-4 px-4">Method</th>
                       <th className="pb-4 px-4">Status</th>
                       <th className="pb-4 px-4">Date</th>
-                      {(user?.role === 'super_admin' || user?.role === 'accountant') && (
+                      {(user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'manager') && (
                         <th className="pb-4 px-4 text-right">Actions</th>
                       )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-black/5">
-                    {transactions.map((t: any) => (
+                    {transactions.filter((t: any) => 
+                      !searchTerm || 
+                      (t.order_number && t.order_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                      (t.customer_name && t.customer_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                      (t.customer_email && t.customer_email.toLowerCase().includes(searchTerm.toLowerCase()))
+                    ).map((t: any) => (
                       <tr 
                         key={t.id} 
                         className="text-sm hover:bg-gray-50 transition-colors cursor-pointer"
@@ -2530,15 +2934,15 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                           setShowTransactionModal(true);
                         }}
                       >
-                        <td className="py-4 px-4 font-mono text-xs">#{t.id}</td>
+                        <td className="py-4 px-4 font-mono text-xs font-bold">{t.order_number || `#${t.id}`}</td>
                         <td className="py-4 px-4 font-bold">{t.customer_name}</td>
                         <td className="py-4 px-4 text-gray-500">{t.customer_email || 'N/A'}</td>
                         <td className="py-4 px-4 text-gray-500">{t.items_count || 0} items</td>
-                        <td className="py-4 px-4 text-emerald-600 font-bold">{formatPrice(t.amount, currency, exchangeRate)}</td>
+                        <td className="py-4 px-4 text-emerald-600 font-bold">{formatPrice(Number(t.amount), currency, exchangeRate)}</td>
                         <td className="py-4 px-4 uppercase text-xs font-bold text-gray-500">{t.payment_method}</td>
                         <td className="py-4 px-4 uppercase text-xs font-bold text-gray-500">{t.status || 'Completed'}</td>
                         <td className="py-4 px-4 text-gray-500">{new Date(t.created_at).toLocaleDateString()}</td>
-                        {(user?.role === 'super_admin' || user?.role === 'accountant') && (
+                        {(user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'manager') && (
                           <td className="py-4 px-4 text-right">
                             <button 
                               onClick={() => deleteOrder(t.order_id)}
@@ -2557,7 +2961,11 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
 
               {/* Mobile Card View */}
               <div className="md:hidden space-y-4">
-                {transactions.map((t: any) => (
+                {transactions.filter((t: any) => 
+                  !searchTerm || 
+                  (t.order_number && t.order_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                  (t.customer_name && t.customer_name.toLowerCase().includes(searchTerm.toLowerCase()))
+                ).map((t: any) => (
                   <div 
                     key={t.id} 
                     className="bg-gray-50 p-4 rounded-xl border border-black/5 space-y-3 cursor-pointer hover:border-[#d35400]/20 transition-all"
@@ -2568,10 +2976,10 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                   >
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">#{t.id}</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t.order_number || `#${t.id}`}</p>
                         <p className="font-bold text-[#1a1a1a]">{t.customer_name}</p>
                       </div>
-                      <p className="text-emerald-600 font-bold">{formatPrice(t.amount, currency, exchangeRate)}</p>
+                      <p className="text-emerald-600 font-bold">{formatPrice(Number(t.amount), currency, exchangeRate)}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div>
@@ -2587,7 +2995,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                       <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 bg-gray-200 text-gray-700 rounded-full">
                         {t.status || 'Completed'}
                       </span>
-                      {(user?.role === 'super_admin' || user?.role === 'accountant') && (
+                      {(user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'manager') && (
                         <button 
                           onClick={() => deleteOrder(t.order_id)}
                           className="text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"
@@ -2616,7 +3024,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">{departments.length} Categories</span>
               </div>
               
-              {user?.role === 'super_admin' && (
+              {(user?.role === 'super_admin' || user?.role === 'manager') && (
                 <form onSubmit={addDepartment} className="flex flex-col sm:flex-row gap-3 mb-8">
                   <input
                     type="text"
@@ -2654,7 +3062,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
             </motion.div>
           )}
 
-          {activeTab === 'accounts' && (user?.role === 'super_admin' || user?.role === 'accountant') && (
+          {activeTab === 'accounts' && (user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'manager') && (
             <motion.div 
               key="accounts"
               initial={{ opacity: 0, y: 20 }}
@@ -2670,7 +3078,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                     </div>
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Total Inflow</p>
                   </div>
-                  <h3 className="text-3xl font-serif font-bold text-[#1a1a1a]">{formatPrice(accountsData.totalInflow, currency, exchangeRate)}</h3>
+                  <h3 className="text-3xl font-serif font-bold text-[#1a1a1a]">{formatPrice(Number(accountsData.totalInflow), currency, exchangeRate)}</h3>
                 </div>
                 <div className="bg-white p-6 rounded-2xl border border-black/5 shadow-sm">
                   <div className="flex items-center gap-4 mb-4">
@@ -2710,9 +3118,9 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                     <tbody className="divide-y divide-black/5">
                       {accountsData.recentOrders.map((order: any) => (
                         <tr key={order.id} className="text-sm hover:bg-gray-50 transition-colors">
-                          <td className="py-4 px-4 font-mono text-xs">#{order.id}</td>
+                          <td className="py-4 px-4 font-mono text-xs font-bold">{order.order_number || `#${order.id}`}</td>
                           <td className="py-4 px-4 font-bold">{order.customer_name}</td>
-                          <td className="py-4 px-4 text-emerald-600 font-bold">{formatPrice(order.total_amount, currency, exchangeRate)}</td>
+                          <td className="py-4 px-4 text-emerald-600 font-bold">{formatPrice(Number(order.total_amount), currency, exchangeRate)}</td>
                           <td className="py-4 px-4">
                             <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest ${order.order_type === 'delivery' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}>
                               {order.order_type}
@@ -2740,7 +3148,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
           </motion.div>
         )}
 
-          {activeTab === 'staff' && (user?.role === 'super_admin' || user?.role === 'staff') && (
+          {activeTab === 'staff' && (user?.role === 'super_admin' || user?.role === 'manager') && (
             <motion.div 
               key="staff"
               initial={{ opacity: 0, y: 20 }}
@@ -2822,6 +3230,8 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                     >
                       <option value="accountant">Accountant</option>
                       <option value="secretary">Secretary</option>
+                      <option value="manager">Manager</option>
+                      <option value="counter_staff">Counter Staff</option>
                       <option value="staff">General Staff</option>
                       <option value="super_admin">Super Admin</option>
                     </select>
@@ -2919,8 +3329,10 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                         <div className="flex items-center gap-2 mt-1">
                           <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-widest ${
                             staff.role === 'super_admin' ? 'bg-purple-50 text-purple-600' : 
+                            staff.role === 'manager' ? 'bg-indigo-50 text-indigo-600' :
                             staff.role === 'accountant' ? 'bg-emerald-50 text-emerald-600' :
                             staff.role === 'secretary' ? 'bg-amber-50 text-amber-600' :
+                            staff.role === 'counter_staff' ? 'bg-blue-50 text-blue-600' :
                             'bg-blue-50 text-blue-600'
                           }`}>
                             {staff.role.replace('_', ' ')}
@@ -2956,7 +3368,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
             </motion.div>
           )}
 
-          {activeTab === 'activities' && user?.role === 'super_admin' && (
+          {activeTab === 'activities' && (user?.role === 'super_admin' || user?.role === 'manager') && (
             <motion.div 
               key="activities"
               initial={{ opacity: 0, y: 20 }}
@@ -2964,17 +3376,54 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
               exit={{ opacity: 0, y: -20 }}
               className="bg-white p-6 rounded-2xl border border-black/5 shadow-sm"
             >
-              <div className="flex justify-between items-center mb-6 border-b border-black/5 pb-4">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-black/5 pb-4">
                 <h2 className="text-xl font-serif font-bold text-[#1a1a1a]">User Activity Logs</h2>
-                <div className="text-sm text-gray-500 font-medium">
-                  Select a user to view their activities
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                  <div className="relative w-full sm:w-64">
+                    <input
+                      type="text"
+                      placeholder="Search users..."
+                      value={activitySearch}
+                      onChange={(e) => setActivitySearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#d35400] transition-colors"
+                    />
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      <Search size={16} />
+                    </div>
+                  </div>
+                  <select
+                    value={activityRoleFilter}
+                    onChange={(e) => setActivityRoleFilter(e.target.value)}
+                    className="w-full sm:w-auto bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-[#d35400] transition-colors"
+                  >
+                    <option value="all">All Roles</option>
+                    <option value="super_admin">Super Admin</option>
+                    <option value="manager">Manager</option>
+                    <option value="accountant">Accountant</option>
+                    <option value="secretary">Secretary</option>
+                    <option value="staff">General Staff</option>
+                    <option value="counter_staff">Counter Staff</option>
+                    <option value="customer">Customer</option>
+                  </select>
                 </div>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {allUsers.length === 0 ? (
+                {allUsers.filter(u => {
+                  const matchesSearch = !activitySearch || 
+                    (u.name && u.name.toLowerCase().includes(activitySearch.toLowerCase())) ||
+                    (u.email && u.email.toLowerCase().includes(activitySearch.toLowerCase()));
+                  const matchesRole = activityRoleFilter === 'all' || u.role === activityRoleFilter;
+                  return matchesSearch && matchesRole;
+                }).length === 0 ? (
                   <p className="text-center py-12 text-gray-400 italic col-span-full">No users found.</p>
-                ) : allUsers.map((u) => (
+                ) : allUsers.filter(u => {
+                  const matchesSearch = !activitySearch || 
+                    (u.name && u.name.toLowerCase().includes(activitySearch.toLowerCase())) ||
+                    (u.email && u.email.toLowerCase().includes(activitySearch.toLowerCase()));
+                  const matchesRole = activityRoleFilter === 'all' || u.role === activityRoleFilter;
+                  return matchesSearch && matchesRole;
+                }).map((u) => (
                   <div 
                     key={u.id} 
                     onClick={() => fetchActivities(u.id, u.name || 'Unknown User')}

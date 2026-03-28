@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
+import { RecommendedCategories } from './components/RecommendedCategories';
 import { ProductCard } from './components/ProductCard';
 import { MemberVault } from './components/MemberVault';
 import { Product } from './constants/products';
@@ -19,6 +20,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
+  const [recommendedCategories, setRecommendedCategories] = useState<string[]>([]);
+  const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [isAdminView, setIsAdminView] = useState(() => {
     return localStorage.getItem('isAdminView') === 'true';
@@ -147,9 +150,10 @@ export default function App() {
         }
       };
 
-      const [deptRes, prodRes] = await Promise.all([
+      const [deptRes, prodRes, settingsRes] = await Promise.all([
         fetchWithLogging(getApiUrl('/api/departments')),
-        fetchWithLogging(getApiUrl('/api/products'))
+        fetchWithLogging(getApiUrl('/api/products')),
+        fetchWithLogging(getApiUrl('/api/settings/public'))
       ]);
       
       if (!deptRes.ok) {
@@ -161,6 +165,9 @@ export default function App() {
 
       const depts = await deptRes.json();
       const prods = await prodRes.json();
+      if (settingsRes.ok) {
+        setSettings(await settingsRes.json());
+      }
 
       setDepartments(depts);
       setProducts(prods);
@@ -210,6 +217,43 @@ export default function App() {
       fetchData();
     }
   }, [isAdminView, fetchData]);
+
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      try {
+        const res = await fetch(getApiUrl('/api/recommendations/categories'), {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        if (res.ok) {
+          setRecommendedCategories(await res.json());
+        }
+      } catch (err) {
+        console.error('Failed to fetch recommendations', err);
+      }
+    };
+    fetchRecommendations();
+  }, [token]);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+    
+    const timer = setTimeout(async () => {
+      try {
+        await fetch(getApiUrl('/api/log-search'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ query: searchQuery })
+        });
+      } catch (err) {
+        console.error('Failed to log search', err);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, token]);
 
   const filteredProducts = products.filter(p => {
     const matchesDept = activeDepartment === 'All' || p.department === activeDepartment;
@@ -297,53 +341,90 @@ export default function App() {
       />
       
       <main>
-        <Hero searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+        <Hero searchQuery={searchQuery} setSearchQuery={setSearchQuery} settings={settings} />
         
-        {/* Department Filter Bar */}
-        <div className="bg-white border-b border-black/5 sticky top-20 z-40">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-8 overflow-x-auto no-scrollbar py-4">
-              {departments.map((dept) => (
-                <button
-                  key={dept}
-                  onClick={() => setActiveDepartment(dept)}
-                  className={`whitespace-nowrap text-xs font-bold uppercase tracking-widest transition-all duration-300 pb-1 border-b-2 ${
-                    activeDepartment === dept 
-                      ? 'text-[#d35400] border-[#d35400]' 
-                      : 'text-gray-400 border-transparent hover:text-gray-600'
-                  }`}
-                >
-                  {dept}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        <RecommendedCategories 
+          categories={recommendedCategories} 
+          onCategoryClick={(cat) => {
+            setActiveDepartment(cat);
+            window.scrollTo({ top: document.getElementById('menu-section')?.offsetTop || 800, behavior: 'smooth' });
+          }} 
+          settings={settings}
+        />
         
-        <section className="py-16 bg-[#fdfbf7]">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col gap-12">
-              <main className="flex-1">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                  {filteredProducts.map(product => (
-                    <ProductCard 
-                      key={product.id} 
-                      product={product} 
-                      onAddToCart={() => addToCart(product)}
-                      onViewDetails={(p) => setSelectedProduct(p)}
-                      currency={currency}
-                    />
-                  ))}
-                </div>
-                {filteredProducts.length === 0 && (
-                  <div className="text-center py-20">
-                    <p className="text-gray-500 text-lg">No products found in this department.</p>
+        <div id="menu-section" />
+
+        {activeDepartment === 'All' && !searchQuery ? (
+          <div className="py-16 bg-[#fdfbf7] space-y-20">
+            {departments.filter(d => d !== 'All').map(dept => {
+              const deptProducts = products.filter(p => p.department === dept).slice(0, 3);
+              if (deptProducts.length === 0) return null;
+              
+              return (
+                <section key={dept} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                  <div className="flex items-center justify-between mb-8 border-b border-black/5 pb-4">
+                    <h2 className="text-2xl font-serif font-bold text-[#1a1a1a] uppercase tracking-tight">{dept}</h2>
+                    <button 
+                      onClick={() => setActiveDepartment(dept)}
+                      className="text-sm font-bold text-[#d35400] uppercase tracking-widest hover:underline"
+                    >
+                      View All
+                    </button>
                   </div>
-                )}
-              </main>
-            </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                    {deptProducts.map(product => (
+                      <ProductCard 
+                        key={product.id} 
+                        product={product} 
+                        onAddToCart={() => addToCart(product)}
+                        onViewDetails={(p) => setSelectedProduct(p)}
+                        currency={currency}
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
           </div>
-        </section>
+        ) : (
+          <section className="py-16 bg-[#fdfbf7]">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center justify-between mb-8 border-b border-black/5 pb-4">
+                <h2 className="text-2xl font-serif font-bold text-[#1a1a1a] uppercase tracking-tight">
+                  {searchQuery ? 'Search Results' : activeDepartment}
+                </h2>
+                {activeDepartment !== 'All' && !searchQuery && (
+                  <button 
+                    onClick={() => setActiveDepartment('All')}
+                    className="text-sm font-bold text-gray-500 uppercase tracking-widest hover:text-[#1a1a1a]"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-col gap-12">
+                <main className="flex-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                    {filteredProducts.map(product => (
+                      <ProductCard 
+                        key={product.id} 
+                        product={product} 
+                        onAddToCart={() => addToCart(product)}
+                        onViewDetails={(p) => setSelectedProduct(p)}
+                        currency={currency}
+                      />
+                    ))}
+                  </div>
+                  {filteredProducts.length === 0 && (
+                    <div className="text-center py-20">
+                      <p className="text-gray-500 text-lg">No products found.</p>
+                    </div>
+                  )}
+                </main>
+              </div>
+            </div>
+          </section>
+        )}
 
         <MemberVault />
       </main>

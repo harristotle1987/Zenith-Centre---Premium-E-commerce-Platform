@@ -1,15 +1,18 @@
 interface HeroProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  settings?: Record<string, string>;
 }
 
-export function Hero({ searchQuery, setSearchQuery }: HeroProps) {
+export function Hero({ searchQuery, setSearchQuery, settings }: HeroProps) {
+  const heroImageUrl = settings?.heroImageUrl || "https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&q=80&w=2000";
+
   return (
     <div className="relative pt-24 pb-16 sm:pt-32 sm:pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-b from-[#fdfbf7]/80 via-[#fdfbf7]/60 to-[#fdfbf7] z-10" />
         <img 
-          src="https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&q=80&w=2000" 
+          src={heroImageUrl} 
           alt="Gourmet Restaurant" 
           className="w-full h-full object-cover opacity-60"
           referrerPolicy="no-referrer"

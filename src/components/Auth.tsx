@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { LogIn, UserPlus, Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff, MapPin, X } from 'lucide-react';
 import { getApiUrl } from '../utils/api';
+import { Logo } from './Logo';
 
 interface AuthProps {
   onLogin: (user: any, token: string) => void;
@@ -110,6 +111,9 @@ export function Auth({ onLogin, onClose }: AuthProps) {
           </button>
         )}
         <div className="text-center mb-8">
+          <div className="flex justify-center mb-4">
+            <Logo className="w-12 h-12" />
+          </div>
           <h1 className="text-3xl font-serif font-bold text-[#1a1a1a] mb-2">
             {isLogin ? 'Welcome Back' : 'Join Zenith'}
           </h1>

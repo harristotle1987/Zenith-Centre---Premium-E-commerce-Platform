@@ -35,7 +35,7 @@ export function UserMenu({ user, onLogout, onLoginClick, onProfileClick, isOpen,
           >
             My Profile
           </button>
-          {(user.role === 'super_admin' || user.role === 'staff' || user.role === 'accountant' || user.role === 'secretary') && (
+          {(user.role === 'super_admin' || user.role === 'staff' || user.role === 'accountant' || user.role === 'secretary' || user.role === 'manager' || user.role === 'counter_staff') && (
             <button 
               onClick={() => {
                 onProfileClick('admin');

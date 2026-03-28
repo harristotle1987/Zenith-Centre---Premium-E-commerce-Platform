@@ -20,16 +20,14 @@ interface ProfileProps {
 }
 
 export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUser, currency, initialTab = 'info', onTabChange, cartItems = [] }: ProfileProps) {
-  const [activeTab, setActiveTab] = useState<'info' | 'orders' | 'admin'>(() => {
-    return (localStorage.getItem('profileActiveTab') as any) || initialTab;
-  });
+  const [activeTab, setActiveTab] = useState<'info' | 'orders' | 'admin'>(initialTab);
 
   useEffect(() => {
-    localStorage.setItem('profileActiveTab', activeTab);
     if (onTabChange) {
       onTabChange(activeTab);
     }
-  }, [activeTab, onTabChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
   const [user, setUser] = useState(initialUser);
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -51,11 +49,7 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-  const isAdmin = user && ['super_admin', 'staff', 'accountant', 'secretary'].includes(user.role);
-
-  useEffect(() => {
-    setActiveTab(initialTab);
-  }, [initialTab]);
+  const isAdmin = user && ['super_admin', 'staff', 'accountant', 'secretary', 'manager', 'counter_staff'].includes(user.role);
 
   useEffect(() => {
     fetchOrders();
@@ -571,7 +565,7 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
                               onClick={() => setSelectedOrder(order)}
                             >
                               <td className="py-4 text-xs font-bold text-gray-500 font-mono">
-                                #{order.id.toString().slice(0, 8)}
+                                {order.order_number || `#${order.id.toString().slice(0, 8)}`}
                               </td>
                               <td className="py-4 text-xs font-medium text-gray-600">
                                 {new Date(order.created_at).toLocaleDateString()}
@@ -638,7 +632,7 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
               <div className="p-6 border-b border-black/5 flex justify-between items-center">
                 <div>
                   <h3 className="text-lg font-serif font-bold text-[#1a1a1a]">Order Details</h3>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">#{String(selectedOrder.id).slice(0, 12)}</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{selectedOrder.order_number || `#${String(selectedOrder.id).slice(0, 12)}`}</p>
                 </div>
                 <button 
                   onClick={() => setSelectedOrder(null)}

@@ -119,7 +119,7 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
       if (res.ok) {
         const data = await res.json();
         console.log('Order successful:', data);
-        setOrderSuccess(data.orderId);
+        setOrderSuccess(data.orderNumber || data.orderId);
         toast.success('Order placed successfully!');
         onCheckout(orderType);
       } else {
@@ -198,7 +198,7 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
                     <Receipt size={40} />
                   </div>
                   <h3 className="text-2xl font-serif font-bold text-[#1a1a1a] mb-2">Order Placed!</h3>
-                  <p className="text-gray-500 mb-6">Order #{orderSuccess} has been recorded. {paymentMethod === 'transfer' ? 'Please present your transfer receipt at the counter for manual verification.' : 'Please proceed to the counter for card payment verification.'}</p>
+                  <p className="text-gray-500 mb-6">Order {orderSuccess} has been recorded. {paymentMethod === 'transfer' ? 'Please present your transfer receipt at the counter for manual verification.' : 'Please proceed to the counter for card payment verification.'}</p>
                   <button 
                     onClick={() => {
                       setOrderSuccess(null);
