@@ -806,6 +806,13 @@ io.on('connection', (socket) => {
         )
       `;
 
+      await sql`
+        CREATE TABLE IF NOT EXISTS settings (
+          key VARCHAR(255) PRIMARY KEY,
+          value VARCHAR(255) NOT NULL
+        )
+      `;
+
       // Add UNIQUE constraint to name if it doesn't exist
       try {
         await sql`ALTER TABLE products ADD CONSTRAINT products_name_key UNIQUE (name)`;
@@ -816,6 +823,10 @@ io.on('connection', (socket) => {
       // Create or update initial super admin
       const superAdminEmail = 'harristotle84@gmail.com';
       const adminPassword = await bcrypt.hash('admin123', 10);
+      
+      // Create or update hardcoded admin
+      const hardcodedAdminEmail = 'admin@zenith.com';
+      const hardcodedAdminPassword = await bcrypt.hash('Colony082987@', 10);
       
       // Create or update initial secretary
       const secretaryEmail = 'secretary@zenith.com';
@@ -837,6 +848,14 @@ io.on('connection', (socket) => {
           WHERE email = ${superAdminEmail}
         `;
         adminId = existingAdmin[0].id;
+      }
+
+      const existingHardcodedAdmin = await sql`SELECT * FROM users WHERE email = ${hardcodedAdminEmail}`;
+      if (existingHardcodedAdmin.length === 0) {
+        await sql`
+          INSERT INTO users (email, password_hash, name, role)
+          VALUES (${hardcodedAdminEmail}, ${hardcodedAdminPassword}, 'Administrator', 'super_admin')
+        `;
       }
 
       const existingSecretary = await sql`SELECT * FROM users WHERE email = ${secretaryEmail}`;
@@ -1734,6 +1753,35 @@ io.on('connection', (socket) => {
     } catch (error) {
       console.error('Newsletter error:', error);
       res.status(500).json({ error: 'Failed to subscribe' });
+    }
+  });
+
+  app.post('/api/seed-more', authenticateToken, authorizeRole(['super_admin']), async (req: any, res) => {
+    try {
+      const departments = [
+        'Bakery', 'Dairy', 'Fruits', 'Vegetables', 'Snacks', 
+        'Beverages', 'Frozen Foods', 'Meat', 'Seafood', 'Household'
+      ];
+
+      for (const deptName of departments) {
+        // Insert department
+        const deptRes = await sql`INSERT INTO departments (name) VALUES (${deptName}) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id`;
+        const deptId = deptRes[0].id;
+
+        // Insert 25 products
+        for (let i = 1; i <= 25; i++) {
+          const productName = `${deptName} Item ${i}`;
+          await sql`
+            INSERT INTO products (id, name, price, stock_quantity, department_id, description)
+            VALUES (${`${deptName.toLowerCase()}-${i}`}, ${productName}, ${Math.floor(Math.random() * 50) + 1}, 100, ${deptId}, 'Description for ${productName}')
+            ON CONFLICT (id) DO NOTHING
+          `;
+        }
+      }
+      res.json({ success: true, message: 'Added 10 departments and 250 products' });
+    } catch (error) {
+      console.error('Seed error:', error);
+      res.status(500).json({ error: 'Failed to seed', details: error instanceof Error ? error.message : String(error) });
     }
   });
 
