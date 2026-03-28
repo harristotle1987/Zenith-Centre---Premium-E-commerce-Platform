@@ -1772,9 +1772,9 @@ io.on('connection', (socket) => {
         for (let i = 1; i <= 25; i++) {
           const productName = `${deptName} Item ${i}`;
           await sql`
-            INSERT INTO products (id, name, price, stock_quantity, department_id, description)
-            VALUES (${`${deptName.toLowerCase()}-${i}`}, ${productName}, ${Math.floor(Math.random() * 50) + 1}, 100, ${deptId}, 'Description for ${productName}')
-            ON CONFLICT (id) DO NOTHING
+            INSERT INTO products (name, price, stock_quantity, department_id, description)
+            VALUES (${productName}, ${Math.floor(Math.random() * 50) + 1}, 100, ${deptId}, 'Description for ${productName}')
+            ON CONFLICT (name) DO NOTHING
           `;
         }
       }
