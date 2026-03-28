@@ -1765,7 +1765,8 @@ io.on('connection', (socket) => {
 
       for (const deptName of departments) {
         // Insert department
-        const deptRes = await sql`INSERT INTO departments (name) VALUES (${deptName}) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id`;
+        await sql`INSERT INTO departments (name) VALUES (${deptName}) ON CONFLICT (name) DO NOTHING`;
+        const deptRes = await sql`SELECT id FROM departments WHERE name = ${deptName}`;
         const deptId = deptRes[0].id;
 
         // Insert 25 products
