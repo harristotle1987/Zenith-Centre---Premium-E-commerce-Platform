@@ -74,8 +74,7 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
   const finalTotal = total * 1.05;
 
   // Paystack expects amount in kobo (smallest currency unit)
-  // Our base prices are in USD, so we always convert to NGN for Paystack
-  const paystackAmount = Math.round(finalTotal * EXCHANGE_RATE * 100);
+  const paystackAmount = Math.round(finalTotal * 100);
 
   const paystackPublicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
 

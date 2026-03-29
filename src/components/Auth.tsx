@@ -23,6 +23,10 @@ export function Auth({ onLogin, onClose, initialMode = 'login' }: AuthProps) {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
+    setIsLogin(initialMode === 'login');
+  }, [initialMode]);
+
+  useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
         onLogin(event.data.user, event.data.token);
@@ -161,7 +165,7 @@ export function Auth({ onLogin, onClose, initialMode = 'login' }: AuthProps) {
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Address / Bus Stop</label>
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Address / Closest Bus Stop</label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input
