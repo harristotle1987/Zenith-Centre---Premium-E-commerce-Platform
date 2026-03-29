@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { AnimatePresence } from 'motion/react';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { RecommendedCategories } from './components/RecommendedCategories';
@@ -50,6 +51,7 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [showAuth, setShowAuth] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
   // Cart State
   const [cartItems, setCartItems] = useState<any[]>(() => {
@@ -360,10 +362,6 @@ export default function App() {
     );
   }
 
-  if (showAuth) {
-    return <Auth onLogin={handleLogin} onClose={() => setShowAuth(false)} />;
-  }
-
   if (profileTab && user) {
     return (
       <Profile 
@@ -409,7 +407,14 @@ export default function App() {
         setActiveDepartment={setActiveDepartment}
         user={user}
         onLogout={handleLogout}
-        onLoginClick={() => setShowAuth(true)}
+        onLoginClick={() => {
+          setAuthMode('login');
+          setShowAuth(true);
+        }}
+        onSignUpClick={() => {
+          setAuthMode('signup');
+          setShowAuth(true);
+        }}
         onProfileClick={(tab) => setProfileTab(tab)}
         cartCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
         onCartClick={() => setIsCartOpen(true)}
@@ -539,6 +544,15 @@ export default function App() {
         title={infoModal?.title || ''}
         content={infoModal?.content || null}
       />
+      <AnimatePresence>
+        {showAuth && (
+          <Auth 
+            onLogin={handleLogin} 
+            onClose={() => setShowAuth(false)} 
+            initialMode={authMode}
+          />
+        )}
+      </AnimatePresence>
       <Toaster position="top-right" richColors />
     </div>
   );

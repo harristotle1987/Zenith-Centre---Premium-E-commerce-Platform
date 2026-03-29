@@ -13,6 +13,7 @@ interface NavbarProps {
   user: any;
   onLogout: () => void;
   onLoginClick: () => void;
+  onSignUpClick: () => void;
   onProfileClick: (tab: 'info' | 'orders' | 'admin') => void;
   cartCount: number;
   onCartClick: () => void;
@@ -29,6 +30,7 @@ export function Navbar({
   user,
   onLogout,
   onLoginClick,
+  onSignUpClick,
   onProfileClick,
   cartCount,
   onCartClick,
@@ -89,6 +91,22 @@ export function Navbar({
                 isOpen={isCurrencyMenuOpen} 
                 setIsOpen={setIsCurrencyMenuOpen} 
               />
+              {!user && (
+                <div className="hidden sm:flex items-center gap-4">
+                  <button 
+                    onClick={onLoginClick}
+                    className="text-xs font-bold text-gray-600 uppercase tracking-widest hover:text-[#d35400] transition-colors"
+                  >
+                    Sign In
+                  </button>
+                  <button 
+                    onClick={onSignUpClick}
+                    className="bg-[#d35400] text-white text-[10px] font-bold px-4 py-2 rounded-full uppercase tracking-widest hover:bg-[#e67e22] transition-colors shadow-lg shadow-[#d35400]/20"
+                  >
+                    Sign Up
+                  </button>
+                </div>
+              )}
               <UserMenu 
                 user={user} 
                 onLogout={onLogout} 

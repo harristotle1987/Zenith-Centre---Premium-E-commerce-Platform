@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
-import { LogIn, UserPlus, Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff, MapPin, X } from 'lucide-react';
+import { Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff, MapPin, X } from 'lucide-react';
 import { getApiUrl } from '../utils/api';
 import { Logo } from './Logo';
 
 interface AuthProps {
   onLogin: (user: any, token: string) => void;
   onClose?: () => void;
+  initialMode?: 'login' | 'signup';
 }
 
-export function Auth({ onLogin, onClose }: AuthProps) {
-  const [isLogin, setIsLogin] = useState(true);
+export function Auth({ onLogin, onClose, initialMode = 'login' }: AuthProps) {
+  const [isLogin, setIsLogin] = useState(initialMode === 'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -20,7 +21,6 @@ export function Auth({ onLogin, onClose }: AuthProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [initLoading, setInitLoading] = useState(false);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -96,11 +96,12 @@ export function Auth({ onLogin, onClose }: AuthProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#fdfbf7] p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white p-8 rounded-3xl shadow-2xl border border-black/5 w-full max-w-md relative"
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="bg-white p-8 rounded-3xl shadow-2xl border border-black/5 w-full max-w-md relative my-8"
       >
         {onClose && (
           <button 
@@ -223,6 +224,19 @@ export function Auth({ onLogin, onClose }: AuthProps) {
           </button>
         </form>
 
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => setIsLogin(!isLogin)}
+            className="text-sm text-gray-500 hover:text-[#d35400] transition-colors"
+          >
+            {isLogin ? (
+              <>Don't have an account? <span className="font-bold text-[#d35400]">Sign Up</span></>
+            ) : (
+              <>Already have an account? <span className="font-bold text-[#d35400]">Sign In</span></>
+            )}
+          </button>
+        </div>
+
         <div className="mt-8 pt-6 border-t border-gray-100 text-center">
           <p className="text-gray-500 text-sm mb-4">Or continue with</p>
           <button 
@@ -234,42 +248,6 @@ export function Auth({ onLogin, onClose }: AuthProps) {
           </button>
         </div>
 
-        <div className="mt-6 text-center space-y-4">
-          <div className="pt-4 border-t border-gray-100">
-            <button
-              disabled={initLoading}
-              onClick={async () => {
-                if (confirm('This will initialize/reset the database and set the admin password to admin123. Continue?')) {
-                  setInitLoading(true);
-                  const loadingToast = toast.loading('Initializing system...');
-                  try {
-                    const res = await fetch(getApiUrl('/api/init-db?reset=true'), { 
-                      method: 'POST',
-                      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                    });
-                    if (res.ok) {
-                      toast.success('System initialized successfully!');
-                      alert('System initialized! You can now login with:\nAdmin: harristotle84@gmail.com / admin123\nSecretary: secretary@zenith.com / secretary123');
-                    } else {
-                      const data = await res.json();
-                      toast.error('Initialization failed');
-                      alert('Initialization failed: ' + (data.error || 'Server error'));
-                    }
-                  } catch (err) {
-                    toast.error('Connection error');
-                    alert('Connection error during initialization. Please ensure you are using the correct App URL and that the backend server is running.');
-                  } finally {
-                    setInitLoading(false);
-                    toast.dismiss(loadingToast);
-                  }
-                }
-              }}
-              className="text-gray-400 hover:text-[#d35400] text-[11px] uppercase tracking-widest font-bold transition-colors disabled:opacity-50"
-            >
-              {initLoading ? 'Initializing...' : 'Initialize System'}
-            </button>
-          </div>
-        </div>
       </motion.div>
     </div>
   );
