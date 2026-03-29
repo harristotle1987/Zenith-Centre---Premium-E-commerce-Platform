@@ -305,6 +305,10 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
       setProducts(prev => prev.filter(p => p.id !== deletedId));
     });
 
+    socket.on('deliveryStatusUpdate', ({ orderId, deliveryStatus }) => {
+      setPendingOrders(prev => prev.map(o => o.id === orderId ? { ...o, delivery_status: deliveryStatus } : o));
+    });
+
     socket.on('orderStatusUpdate', () => {
       fetchData(true);
     });
@@ -677,6 +681,29 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
       }
     });
     setShowConfirm(true);
+  };
+
+  const updateDeliveryStatus = async (orderId: number, status: string) => {
+    try {
+      const res = await fetch(getApiUrl(`/api/admin/orders/${orderId}/delivery-status`), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ deliveryStatus: status })
+      });
+
+      if (res.ok) {
+        toast.success(`Delivery status updated to ${status}`);
+      } else {
+        const error = await res.json();
+        toast.error(error.error || 'Failed to update delivery status');
+      }
+    } catch (error) {
+      console.error('Update delivery status error:', error);
+      toast.error('Failed to update delivery status');
+    }
   };
 
   const updateOrderStatus = async (orderId: number, status: string) => {
@@ -1866,7 +1893,23 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                           
                           <div className="flex flex-col gap-2">
                             <div className="mb-2">
-                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Status</p>
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Delivery Status</p>
+                              <div className="flex flex-wrap gap-1 mb-3">
+                                {['Placed', 'Preparing', 'Out for Delivery', 'Delivered'].map((status) => (
+                                  <button
+                                    key={status}
+                                    onClick={() => updateDeliveryStatus(order.id, status)}
+                                    className={`text-[9px] px-2 py-1 rounded-md font-bold transition-all ${
+                                      (order.delivery_status || 'Placed') === status
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                  >
+                                    {status}
+                                  </button>
+                                ))}
+                              </div>
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Order Status</p>
                               <select
                                 value={order.status}
                                 onChange={(e) => updateOrderStatus(order.id, e.target.value)}

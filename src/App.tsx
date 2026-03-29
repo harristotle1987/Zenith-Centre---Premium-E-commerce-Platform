@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { io } from 'socket.io-client';
 import { AnimatePresence } from 'motion/react';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
@@ -215,6 +216,30 @@ export default function App() {
     };
     window.addEventListener('toggleAdminView', handleToggleAdmin);
     return () => window.removeEventListener('toggleAdminView', handleToggleAdmin);
+  }, []);
+
+  useEffect(() => {
+    const socket = io(getApiUrl(''));
+
+    socket.on('productAdded', (newProduct) => {
+      setProducts(prev => [...prev, newProduct]);
+    });
+
+    socket.on('productUpdated', (updatedProduct) => {
+      setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+    });
+
+    socket.on('productDeleted', (deletedId) => {
+      setProducts(prev => prev.filter(p => p.id !== deletedId));
+    });
+
+    socket.on('settingsUpdated', (newSettings) => {
+      setSettings(newSettings);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   useEffect(() => {

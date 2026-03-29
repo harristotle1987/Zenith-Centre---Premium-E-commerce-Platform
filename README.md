@@ -26,6 +26,20 @@ Zenith Centre is a sophisticated, full-stack e-commerce and Point of Sale (POS) 
 - **Financial Analytics:** Real-time tracking of total inflow, transaction history, and payment methods.
 - **Activity Logs:** Audit trail of all significant administrative actions for transparency.
 - **Real-Time Notifications:** Instant updates on new orders via **Socket.io**.
+- **Live Order Tracking:** Customers see status changes instantly without refreshing.
+- **Delivery Status Tracking:** Track order progress through stages: Placed, Preparing, Out for Delivery, and Delivered.
+
+---
+
+## 🔄 Real-Time Synchronization
+
+Zenith Centre leverages **Socket.io** to maintain a live connection between the server and all active clients, ensuring a seamless experience without manual page refreshes:
+
+- **Instant Order Alerts:** The administrative dashboard receives immediate notifications and data updates whenever a new order is placed (Guest or Member).
+- **Live Status Updates:** Customers' order history pages reflect status changes (e.g., 'PENDING' → 'COMPLETED') and delivery status updates (e.g., 'Placed' → 'Delivered') the moment staff update them.
+- **Dynamic Inventory:** Product stock levels, prices, and availability update instantly across the storefront when modified by an administrator.
+- **Live Activity Log:** The administrative audit trail updates in real-time as staff perform actions across the system.
+- **Financial Sync:** Transaction history and revenue analytics update live as payments are confirmed.
 
 ---
 

@@ -786,6 +786,7 @@ io.on('connection', (socket) => {
           guest_contact VARCHAR(255),
           total_amount DECIMAL(10, 2) NOT NULL,
           status VARCHAR(50) DEFAULT 'PLACED', -- 'PLACED', 'PAID', 'IN_PROGRESS', 'READY', 'COMPLETED', 'CANCELLED'
+          delivery_status VARCHAR(50) DEFAULT 'Placed', -- 'Placed', 'Preparing', 'Out for Delivery', 'Delivered'
           order_type VARCHAR(50) DEFAULT 'pickup', -- 'pickup', 'in-store'
           payment_method VARCHAR(50) DEFAULT 'card',
           payment_reference VARCHAR(255),
@@ -805,6 +806,8 @@ io.on('connection', (socket) => {
         await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(255)`;
         await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT 'PENDING'`;
         await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address TEXT`;
+        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_status VARCHAR(50) DEFAULT 'Placed'`;
+        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type VARCHAR(50) DEFAULT 'pickup'`;
       } catch (e) {
         // Columns might already exist, ignore
       }
@@ -1291,6 +1294,32 @@ io.on('connection', (socket) => {
     }
   });
 
+  app.put('/api/admin/orders/:id/delivery-status', authenticateToken, authorizeRole(['super_admin', 'staff', 'accountant', 'secretary', 'manager', 'counter_staff']), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { deliveryStatus } = req.body;
+      
+      if (!['Placed', 'Preparing', 'Out for Delivery', 'Delivered'].includes(deliveryStatus)) {
+        return res.status(400).json({ error: 'Invalid delivery status' });
+      }
+
+      await sql`
+        UPDATE orders SET delivery_status = ${deliveryStatus} WHERE id = ${id}
+      `;
+
+      // Emit socket event for delivery status update
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('deliveryStatusUpdate', { orderId: id, deliveryStatus });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Update delivery status error:', error);
+      res.status(500).json({ error: 'Failed to update delivery status' });
+    }
+  });
+
   app.put('/api/admin/orders/:id/status', authenticateToken, authorizeRole(['super_admin', 'staff', 'accountant', 'secretary', 'manager', 'counter_staff']), async (req: any, res) => {
     try {
       const { id } = req.params;
@@ -1354,6 +1383,13 @@ io.on('connection', (socket) => {
       }
 
       await logActivity(userId, 'Completed Order', { order_id: id });
+
+      // Emit socket event for order status update
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('orderStatusUpdate', { orderId: id, status: 'COMPLETED' });
+      }
+
       res.json({ success: true });
     } catch (error) {
       console.error('Complete order error:', error);
@@ -1379,6 +1415,14 @@ io.on('connection', (socket) => {
       await sql`DELETE FROM orders WHERE id = ${id}`;
 
       await logActivity(userId, 'Deleted Order', { order_id: id });
+
+      // Emit socket event for order deletion
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('orderDeleted', id);
+        io.emit('orderStatusUpdate', { orderId: id, status: 'DELETED' });
+      }
+
       res.json({ success: true });
     } catch (error) {
       console.error('Delete order error:', error);
@@ -1723,8 +1767,11 @@ io.on('connection', (socket) => {
       
       await sql`DELETE FROM products WHERE id = ${id}`;
       const io = req.app.get('io');
-      io.emit('productDeleted', id);
+      if (io) {
+        io.emit('productDeleted', id);
+      }
       await logActivity(req.user.id, 'Deleted Product', { product_id: id });
+
       res.json({ success: true });
     } catch (error) {
       console.error('Delete product error:', error);

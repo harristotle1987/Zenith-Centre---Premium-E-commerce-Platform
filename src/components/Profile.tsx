@@ -61,6 +61,25 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
       fetchOrders();
     });
 
+    socket.on('orderAdded', () => {
+      fetchOrders();
+    });
+
+    socket.on('newOrder', () => {
+      fetchOrders();
+    });
+
+    socket.on('deliveryStatusUpdate', ({ orderId, deliveryStatus }) => {
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, delivery_status: deliveryStatus } : o));
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder(prev => prev ? { ...prev, delivery_status: deliveryStatus } : null);
+      }
+    });
+
+    socket.on('orderDeleted', () => {
+      fetchOrders();
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -72,6 +91,29 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
       direction = 'desc';
     }
     setSortConfig({ key, direction });
+  };
+
+  const updateDeliveryStatus = async (orderId: number, status: string) => {
+    try {
+      const res = await fetch(getApiUrl(`/api/admin/orders/${orderId}/delivery-status`), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ deliveryStatus: status })
+      });
+
+      if (res.ok) {
+        toast.success(`Delivery status updated to ${status}`);
+      } else {
+        const error = await res.json();
+        toast.error(error.error || 'Failed to update delivery status');
+      }
+    } catch (error) {
+      console.error('Update delivery status error:', error);
+      toast.error('Failed to update delivery status');
+    }
   };
 
   const filteredAndSortedOrders = orders
@@ -646,8 +688,8 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
               <div className="p-6 max-h-[60vh] overflow-y-auto no-scrollbar">
                 <div className="space-y-6">
                   {/* Status & Date */}
-                  <div className="flex justify-between items-center bg-gray-50 rounded-2xl p-4 border border-black/5">
-                    <div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-gray-50 rounded-2xl p-4 border border-black/5">
                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Status</p>
                       <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 rounded-full ${
@@ -658,9 +700,48 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
                         <span className="text-xs font-bold text-gray-700 uppercase tracking-widest">{selectedOrder.status}</span>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="bg-gray-50 rounded-2xl p-4 border border-black/5">
                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Date</p>
                       <p className="text-xs font-bold text-gray-700">{new Date(selectedOrder.created_at).toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  {/* Delivery Status */}
+                  <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">Delivery Status</p>
+                        <span className="text-xs font-bold text-blue-700 uppercase tracking-widest">
+                          {selectedOrder.delivery_status || 'Placed'}
+                        </span>
+                      </div>
+                      {isAdmin && (
+                        <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">
+                          {['Placed', 'Preparing', 'Out for Delivery', 'Delivered'].map((status) => (
+                            <button
+                              key={status}
+                              onClick={() => updateDeliveryStatus(selectedOrder.id, status)}
+                              className={`text-[9px] px-2 py-1 rounded-md font-bold transition-all ${
+                                selectedOrder.delivery_status === status
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-white text-blue-600 border border-blue-200 hover:bg-blue-50'
+                              }`}
+                            >
+                              {status}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="w-full bg-blue-200 h-1.5 rounded-full overflow-hidden mt-3">
+                      <div 
+                        className="bg-blue-600 h-full transition-all duration-500"
+                        style={{ 
+                          width: selectedOrder.delivery_status === 'Delivered' ? '100%' : 
+                                 selectedOrder.delivery_status === 'Out for Delivery' ? '75%' : 
+                                 selectedOrder.delivery_status === 'Preparing' ? '50%' : '25%' 
+                        }}
+                      />
                     </div>
                   </div>
 

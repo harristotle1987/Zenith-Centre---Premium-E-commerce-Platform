@@ -64,7 +64,9 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
       newErrors.email = 'Invalid email format';
     }
     if (!guestContact.trim()) newErrors.contact = 'Contact number is required';
-    if (orderType === 'delivery' && !deliveryAddress.trim()) newErrors.address = 'Delivery address is required';
+    if (orderType === 'delivery' && !deliveryAddress.trim()) {
+      newErrors.address = 'Delivery address is required';
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
