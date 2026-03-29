@@ -716,21 +716,24 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
                         </span>
                       </div>
                       {isAdmin && (
-                        <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">
-                          {['Placed', 'Preparing', 'Out for Delivery', 'Delivered'].map((status) => (
-                            <button
-                              key={status}
-                              onClick={() => updateDeliveryStatus(selectedOrder.id, status)}
-                              className={`text-[9px] px-2 py-1 rounded-md font-bold transition-all ${
-                                selectedOrder.delivery_status === status
-                                  ? 'bg-blue-600 text-white'
-                                  : 'bg-white text-blue-600 border border-blue-200 hover:bg-blue-50'
-                              }`}
-                            >
-                              {status}
-                            </button>
-                          ))}
-                        </div>
+                        <select
+                          value={selectedOrder.delivery_status || 'Placed'}
+                          onChange={(e) => updateDeliveryStatus(selectedOrder.id, e.target.value)}
+                          className={`text-xs font-bold py-1 px-2 rounded-lg focus:outline-none focus:ring-2 transition-all border ${
+                            (selectedOrder.delivery_status || 'Placed') === 'Delivered'
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-700 focus:ring-emerald-500'
+                              : (selectedOrder.delivery_status || 'Placed') === 'Out for Delivery'
+                              ? 'bg-blue-50 border-blue-200 text-blue-700 focus:ring-blue-500'
+                              : (selectedOrder.delivery_status || 'Placed') === 'Preparing'
+                              ? 'bg-amber-50 border-amber-200 text-amber-700 focus:ring-amber-500'
+                              : 'bg-white border-gray-200 text-gray-700 focus:ring-gray-400'
+                          }`}
+                        >
+                          <option value="Placed">Placed</option>
+                          <option value="Preparing">Preparing</option>
+                          <option value="Out for Delivery">Out for Delivery</option>
+                          <option value="Delivered">Delivered</option>
+                        </select>
                       )}
                     </div>
                     <div className="w-full bg-blue-200 h-1.5 rounded-full overflow-hidden mt-3">

@@ -1894,21 +1894,24 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                           <div className="flex flex-col gap-2">
                             <div className="mb-2">
                               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Delivery Status</p>
-                              <div className="flex flex-wrap gap-1 mb-3">
-                                {['Placed', 'Preparing', 'Out for Delivery', 'Delivered'].map((status) => (
-                                  <button
-                                    key={status}
-                                    onClick={() => updateDeliveryStatus(order.id, status)}
-                                    className={`text-[9px] px-2 py-1 rounded-md font-bold transition-all ${
-                                      (order.delivery_status || 'Placed') === status
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    }`}
-                                  >
-                                    {status}
-                                  </button>
-                                ))}
-                              </div>
+                              <select
+                                value={order.delivery_status || 'Placed'}
+                                onChange={(e) => updateDeliveryStatus(order.id, e.target.value)}
+                                className={`w-full mb-3 py-2 px-3 rounded-xl font-bold focus:outline-none focus:ring-2 transition-all border ${
+                                  (order.delivery_status || 'Placed') === 'Delivered'
+                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700 focus:ring-emerald-500'
+                                    : (order.delivery_status || 'Placed') === 'Out for Delivery'
+                                    ? 'bg-blue-50 border-blue-200 text-blue-700 focus:ring-blue-500'
+                                    : (order.delivery_status || 'Placed') === 'Preparing'
+                                    ? 'bg-amber-50 border-amber-200 text-amber-700 focus:ring-amber-500'
+                                    : 'bg-gray-50 border-gray-200 text-gray-700 focus:ring-gray-400'
+                                }`}
+                              >
+                                <option value="Placed">Placed</option>
+                                <option value="Preparing">Preparing</option>
+                                <option value="Out for Delivery">Out for Delivery</option>
+                                <option value="Delivered">Delivered</option>
+                              </select>
                               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Order Status</p>
                               <select
                                 value={order.status}
