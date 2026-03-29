@@ -5,7 +5,7 @@ import { ShoppingCart, X, Plus, Minus, CreditCard, ShoppingBag, ArrowRight, Rece
 import { usePaystackPayment } from 'react-paystack';
 import { getApiUrl } from '../utils/api';
 import { Product } from '../constants/products';
-import { Currency, formatPrice } from '../utils/currency';
+import { Currency, formatPrice, EXCHANGE_RATE } from '../utils/currency';
 
 interface CartItem extends Product {
   cartItemId: string;
@@ -73,12 +73,18 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
   const total = items.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
   const finalTotal = total * 1.05;
 
+  // Paystack expects amount in kobo (smallest currency unit)
+  // Our base prices are in USD, so we always convert to NGN for Paystack
+  const paystackAmount = Math.round(finalTotal * EXCHANGE_RATE * 100);
+
+  const paystackPublicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
+
   const config = {
     reference: (new Date()).getTime().toString(),
     email: guestEmail,
-    amount: Math.round(finalTotal * 100), // Amount is in kobo
-    publicKey: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_placeholder',
-    currency: 'NGN', // Assuming NGN, adjust if needed
+    amount: paystackAmount,
+    publicKey: paystackPublicKey || 'pk_test_placeholder',
+    currency: 'NGN',
   };
 
   const initializePayment = usePaystackPayment(config);
@@ -152,6 +158,10 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
     }
     
     if (paymentMethod === 'card') {
+      if (!paystackPublicKey || paystackPublicKey === 'pk_test_placeholder') {
+        toast.error('Payment system is not fully configured. Please contact the administrator to set the Paystack Public Key.');
+        return;
+      }
       initializePayment({
         onSuccess: (reference: any) => {
           processOrder(reference.reference);

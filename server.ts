@@ -1296,7 +1296,7 @@ io.on('connection', (socket) => {
       const { id } = req.params;
       const { status } = req.body;
       
-      if (!['PLACED', 'PAID', 'IN_PROGRESS', 'READY', 'COMPLETED', 'CANCELLED'].includes(status)) {
+      if (!['PLACED', 'PAID', 'IN_PROGRESS', 'READY', 'COMPLETED', 'CANCELLED', 'AWAITING_CONFIRMATION'].includes(status)) {
         return res.status(400).json({ error: 'Invalid status' });
       }
 
@@ -1529,7 +1529,15 @@ io.on('connection', (socket) => {
       const isStaff = ['super_admin', 'staff', 'accountant', 'secretary', 'manager', 'counter_staff'].includes(req.user.role);
       const staffId = isStaff ? req.user.id : null;
       const userId = isStaff ? null : req.user.id;
-      const initialStatus = (payment_status && (payment_status.toUpperCase() === 'PAID' || payment_status.toUpperCase() === 'COMPLETED')) ? 'PAID' : 'PLACED';
+      
+      let initialStatus = 'PLACED';
+      if (isStaff && (payment_status?.toUpperCase() === 'PAID' || payment_status?.toUpperCase() === 'COMPLETED')) {
+        initialStatus = 'PAID';
+      } else if (!isStaff && (payment_method === 'card' || payment_method === 'transfer')) {
+        initialStatus = 'AWAITING_CONFIRMATION';
+      } else if (payment_status?.toUpperCase() === 'PAID') {
+        initialStatus = 'PAID';
+      }
 
       const orderResult = await sql`
         INSERT INTO orders (user_id, staff_id, total_amount, order_type, payment_method, payment_reference, payment_status, guest_name, guest_email, guest_contact, status, delivery_address)
@@ -1565,7 +1573,7 @@ io.on('connection', (socket) => {
         io.emit('transactionAdded', transactionResult[0]);
       }
 
-      if (initialStatus === 'PAID') {
+      if (initialStatus === 'PAID' || (initialStatus === 'AWAITING_CONFIRMATION' && payment_method === 'card')) {
         await reduceStock(orderId);
       }
 
@@ -1596,7 +1604,12 @@ io.on('connection', (socket) => {
         }
       }
 
-      const initialStatus = (payment_status && (payment_status.toUpperCase() === 'PAID' || payment_status.toUpperCase() === 'COMPLETED')) ? 'PAID' : 'PLACED';
+      let initialStatus = 'PLACED';
+      if (payment_method === 'card' || payment_method === 'transfer') {
+        initialStatus = 'AWAITING_CONFIRMATION';
+      } else if (payment_status?.toUpperCase() === 'PAID' || payment_status?.toUpperCase() === 'COMPLETED') {
+        initialStatus = 'PAID';
+      }
       
       const orderResult = await sql`
         INSERT INTO orders (guest_name, guest_email, guest_contact, total_amount, order_type, payment_method, payment_reference, payment_status, status, delivery_address)
@@ -1627,7 +1640,7 @@ io.on('connection', (socket) => {
         io.emit('transactionAdded', transactionResult[0]);
       }
 
-      if (initialStatus === 'PAID') {
+      if (initialStatus === 'PAID' || (initialStatus === 'AWAITING_CONFIRMATION' && payment_method === 'card')) {
         await reduceStock(orderId);
       }
 

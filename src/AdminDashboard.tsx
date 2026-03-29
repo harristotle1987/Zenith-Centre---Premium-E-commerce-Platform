@@ -1759,6 +1759,7 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                       className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-600 focus:outline-none focus:border-[#d35400]"
                     >
                       <option value="all">Active</option>
+                      <option value="AWAITING_CONFIRMATION">Awaiting Confirmation</option>
                       <option value="PLACED">Placed</option>
                       <option value="PAID">Paid</option>
                       <option value="IN_PROGRESS">Preparing</option>
@@ -1871,6 +1872,7 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                                 onChange={(e) => updateOrderStatus(order.id, e.target.value)}
                                 className="w-full bg-gray-50 border border-gray-200 text-gray-700 py-2 px-3 rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#d35400] transition-all"
                               >
+                                <option value="AWAITING_CONFIRMATION">Awaiting Confirmation</option>
                                 <option value="PLACED">Placed</option>
                                 <option value="PAID">Paid</option>
                                 <option value="IN_PROGRESS">In Progress</option>
@@ -2979,6 +2981,7 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                               order.status === 'CANCELLED' ? 'bg-red-50 text-red-600' :
                               order.status === 'READY' ? 'bg-blue-50 text-blue-600' :
                               order.status === 'IN_PROGRESS' ? 'bg-amber-50 text-amber-600' :
+                              order.status === 'AWAITING_CONFIRMATION' ? 'bg-purple-50 text-purple-600' :
                               'bg-gray-100 text-gray-600'
                             }`}>
                               {order.status || 'PLACED'}
