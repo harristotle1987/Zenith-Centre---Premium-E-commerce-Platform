@@ -14,12 +14,13 @@ interface ProfileProps {
   onBackToStore: () => void;
   onUpdateUser?: (user: any) => void;
   currency: Currency;
+  onCurrencyChange: (currency: Currency) => void;
   initialTab?: 'info' | 'orders' | 'admin';
   onTabChange?: (tab: 'info' | 'orders' | 'admin') => void;
   cartItems?: any[];
 }
 
-export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUser, currency, initialTab = 'info', onTabChange, cartItems = [] }: ProfileProps) {
+export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUser, currency, onCurrencyChange, initialTab = 'info', onTabChange, cartItems = [] }: ProfileProps) {
   const [activeTab, setActiveTab] = useState<'info' | 'orders' | 'admin'>(initialTab);
 
   useEffect(() => {
@@ -225,7 +226,7 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
             <button onClick={onLogout} className="text-xs font-bold text-red-500 uppercase tracking-widest hover:underline">Logout</button>
           </div>
         </div>
-        <AdminDashboard user={user} currency={currency} onUpdateUser={(updatedUser) => {
+        <AdminDashboard user={user} currency={currency} onCurrencyChange={onCurrencyChange} onUpdateUser={(updatedUser) => {
           setUser(updatedUser);
           if (onUpdateUser) {
             onUpdateUser(updatedUser);

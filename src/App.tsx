@@ -10,10 +10,12 @@ import { Auth } from './components/Auth';
 import { Cart } from './components/Cart';
 import { Profile } from './components/Profile';
 import { Footer } from './components/Footer';
+import { InfoModal } from './components/InfoModal';
 import { ProductModal } from './components/ProductModal';
 import { getApiUrl } from './utils/api';
 import { Currency } from './utils/currency';
 import { Toaster, toast } from 'sonner';
+import { CurrencyToggle } from './components/CurrencyToggle';
 
 export default function App() {
   const [activeDepartment, setActiveDepartment] = useState('All');
@@ -26,6 +28,7 @@ export default function App() {
   const [isAdminView, setIsAdminView] = useState(() => {
     return localStorage.getItem('isAdminView') === 'true';
   });
+  const [infoModal, setInfoModal] = useState<{ type: string; title: string; content: React.ReactNode } | null>(null);
   const [profileTab, setProfileTab] = useState<'info' | 'orders' | 'admin' | null>(() => {
     return localStorage.getItem('profileTab') as 'info' | 'orders' | 'admin' | null;
   });
@@ -261,6 +264,94 @@ export default function App() {
     return matchesDept && matchesSearch;
   });
 
+  const handleFooterLink = (link: string) => {
+    switch (link) {
+      case 'our-story':
+        setInfoModal({
+          type: 'our-story',
+          title: 'Our Story',
+          content: (
+            <div className="space-y-6">
+              <p className="text-lg font-serif italic text-[#d35400]">Founded on the principles of quality, integrity, and community.</p>
+              <p>Zenith Centre began as a small artisanal pantry in the heart of the city. Our mission has always been simple: to curate the world's finest goods and make them accessible to those who appreciate the art of living well.</p>
+              <p>Every product in our collection is hand-selected for its exceptional quality, sustainable sourcing, and unique character. We believe that the items we surround ourselves with should tell a story and inspire our daily rituals.</p>
+              <p>Today, Zenith Centre stands as a beacon for quality, serving a global community of discerning individuals who seek more than just products—they seek experiences.</p>
+            </div>
+          )
+        });
+        break;
+      case 'journal':
+        setInfoModal({
+          type: 'journal',
+          title: 'The Zenith Journal',
+          content: (
+            <div className="space-y-8">
+              <div className="border-b border-black/5 pb-6">
+                <span className="text-[10px] font-bold text-[#d35400] uppercase tracking-[0.2em] mb-2 block">Spring 2026</span>
+                <h4 className="text-xl font-serif font-bold mb-3">The Art of the Morning Ritual</h4>
+                <p className="text-sm text-gray-500">Exploring the meditative process of pour-over coffee and how it sets the tone for a productive day.</p>
+              </div>
+              <div className="border-b border-black/5 pb-6">
+                <span className="text-[10px] font-bold text-[#d35400] uppercase tracking-[0.2em] mb-2 block">Winter 2025</span>
+                <h4 className="text-xl font-serif font-bold mb-3">Sourcing from the Source</h4>
+                <p className="text-sm text-gray-500">A journey to the high-altitude tea gardens of Darjeeling to meet the families behind our exclusive blends.</p>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-[#d35400] uppercase tracking-[0.2em] mb-2 block">Autumn 2025</span>
+                <h4 className="text-xl font-serif font-bold mb-3">The Sustainable Pantry</h4>
+                <p className="text-sm text-gray-500">Practical tips for reducing waste and choosing ethically produced essentials for your home.</p>
+              </div>
+            </div>
+          )
+        });
+        break;
+      case 'privacy':
+        setInfoModal({
+          type: 'privacy',
+          title: 'Privacy Policy',
+          content: (
+            <div className="space-y-6 text-sm">
+              <p>At Zenith Centre, we take your privacy seriously. This policy outlines how we collect, use, and protect your personal information.</p>
+              <h4 className="font-bold text-[#1a1a1a]">Information Collection</h4>
+              <p>We collect information you provide directly to us, such as when you create an account, make a purchase, or subscribe to our newsletter.</p>
+              <h4 className="font-bold text-[#1a1a1a]">Use of Information</h4>
+              <p>We use your information to process orders, provide customer support, and send you updates about our products and services (if you've opted in).</p>
+              <h4 className="font-bold text-[#1a1a1a]">Data Security</h4>
+              <p>We implement industry-standard security measures to protect your data from unauthorized access or disclosure.</p>
+              <p>For more detailed information, please contact our privacy team at privacy@zenithcentre.com.</p>
+            </div>
+          )
+        });
+        break;
+      case 'terms':
+        setInfoModal({
+          type: 'terms',
+          title: 'Terms of Service',
+          content: (
+            <div className="space-y-6 text-sm">
+              <p>By accessing or using Zenith Centre, you agree to be bound by these terms of service.</p>
+              <h4 className="font-bold text-[#1a1a1a]">Product Availability</h4>
+              <p>All products are subject to availability. We reserve the right to limit quantities or discontinue products at any time.</p>
+              <h4 className="font-bold text-[#1a1a1a]">Pricing</h4>
+              <p>Prices are subject to change without notice. We are not responsible for typographical errors in pricing or descriptions.</p>
+              <h4 className="font-bold text-[#1a1a1a]">User Conduct</h4>
+              <p>You agree to use our services only for lawful purposes and in a manner that does not infringe upon the rights of others.</p>
+              <p>These terms are governed by the laws of the jurisdiction in which Zenith Centre operates.</p>
+            </div>
+          )
+        });
+        break;
+      case 'member-vault':
+        window.scrollTo({ top: document.getElementById('member-vault-section')?.offsetTop || 2000, behavior: 'smooth' });
+        break;
+      case 'departments':
+        window.scrollTo({ top: document.getElementById('menu-section')?.offsetTop || 800, behavior: 'smooth' });
+        break;
+      default:
+        break;
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#fdfbf7] flex items-center justify-center">
@@ -281,6 +372,7 @@ export default function App() {
         onBackToStore={() => setProfileTab(null)} 
         onUpdateUser={(updatedUser) => setUser(updatedUser)}
         currency={currency}
+        onCurrencyChange={handleCurrencyChange}
         initialTab={profileTab}
         onTabChange={(tab) => setProfileTab(tab)}
         cartItems={cartItems}
@@ -299,25 +391,12 @@ export default function App() {
             &larr; Back to Store
           </button>
           <div className="flex items-center gap-4">
-            <div className="flex items-center bg-black/5 rounded-full p-1 mr-4">
-              <button 
-                onClick={() => handleCurrencyChange('NGN')}
-                className={`px-3 py-1 text-[10px] font-bold rounded-full transition-all ${currency === 'NGN' ? 'bg-[#d35400] text-white' : 'text-gray-500 hover:text-[#1a1a1a]'}`}
-              >
-                NGN
-              </button>
-              <button 
-                onClick={() => handleCurrencyChange('USD')}
-                className={`px-3 py-1 text-[10px] font-bold rounded-full transition-all ${currency === 'USD' ? 'bg-[#d35400] text-white' : 'text-gray-500 hover:text-[#1a1a1a]'}`}
-              >
-                USD
-              </button>
-            </div>
+            <CurrencyToggle currency={currency} onCurrencyChange={handleCurrencyChange} />
             <span className="text-sm font-bold text-gray-400 uppercase tracking-widest">{user.role.replace('_', ' ')}</span>
             <button onClick={handleLogout} className="text-xs font-bold text-red-500 uppercase tracking-widest hover:underline">Logout</button>
           </div>
         </div>
-        <AdminDashboard user={user} currency={currency} onUpdateUser={(updatedUser) => setUser(updatedUser)} />
+        <AdminDashboard user={user} currency={currency} onCurrencyChange={handleCurrencyChange} onUpdateUser={(updatedUser) => setUser(updatedUser)} />
       </div>
     );
   }
@@ -426,6 +505,7 @@ export default function App() {
           </section>
         )}
 
+        <div id="member-vault-section" />
         <MemberVault />
       </main>
 
@@ -450,13 +530,14 @@ export default function App() {
 
       <Footer 
         user={user} 
-        onAdminClick={() => {
-          if (user && (user.role === 'super_admin' || user.role === 'staff' || user.role === 'accountant' || user.role === 'secretary')) {
-            setIsAdminView(true);
-          } else {
-            setShowAuth(true);
-          }
-        }} 
+        onLinkClick={handleFooterLink}
+      />
+
+      <InfoModal 
+        isOpen={!!infoModal}
+        onClose={() => setInfoModal(null)}
+        title={infoModal?.title || ''}
+        content={infoModal?.content || null}
       />
       <Toaster position="top-right" richColors />
     </div>

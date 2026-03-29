@@ -26,7 +26,8 @@ interface CartProps {
 
 export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onCheckout, user, currency }: CartProps) {
   const [orderType, setOrderType] = useState<'delivery' | 'in-shop'>('delivery');
-  const [paymentMethod, setPaymentMethod] = useState<'transfer' | 'card'>('transfer');
+  const [paymentTiming, setPaymentTiming] = useState<'before' | 'on-delivery'>('before');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer' | 'card'>('cash');
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<string | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -47,6 +48,12 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
       setDeliveryAddress(user.address || '');
     }
   }, [user]);
+
+  React.useEffect(() => {
+    if (paymentMethod === 'cash' && orderType === 'delivery' && paymentTiming === 'before') {
+      setPaymentMethod('transfer');
+    }
+  }, [orderType, paymentTiming, paymentMethod]);
 
   const validate = () => {
     const newErrors: { name?: string; email?: string; contact?: string; address?: string } = {};
@@ -100,6 +107,7 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
         total_amount: finalTotal,
         order_type: orderType,
         payment_method: paymentMethod,
+        payment_timing: orderType === 'delivery' ? paymentTiming : null,
         payment_status: reference ? 'paid' : 'pending',
         payment_reference: reference,
         guest_name: guestName,
@@ -149,7 +157,7 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
           processOrder(reference.reference);
         },
         onClose: () => {
-          alert('Payment was cancelled.');
+          toast.info('Payment was cancelled.');
         }
       });
     } else {
@@ -342,23 +350,50 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
                   </div>
                   
                   <div className="space-y-4 pt-4 border-t border-black/5">
+                    {orderType === 'delivery' && (
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Payment Timing</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button 
+                            onClick={() => setPaymentTiming('before')}
+                            className={`py-2 rounded-lg text-[10px] font-bold transition-all border flex items-center justify-center gap-1 ${paymentTiming === 'before' ? 'bg-[#1a1a1a] text-white border-[#1a1a1a] shadow-lg' : 'bg-white text-gray-600 border-gray-200 hover:border-[#1a1a1a]'}`}
+                          >
+                            Pay Before
+                          </button>
+                          <button 
+                            onClick={() => setPaymentTiming('on-delivery')}
+                            className={`py-2 rounded-lg text-[10px] font-bold transition-all border flex items-center justify-center gap-1 ${paymentTiming === 'on-delivery' ? 'bg-[#1a1a1a] text-white border-[#1a1a1a] shadow-lg' : 'bg-white text-gray-600 border-gray-200 hover:border-[#1a1a1a]'}`}
+                          >
+                            Pay On Delivery
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Payment Method</label>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
+                        {(orderType === 'in-shop' || paymentTiming === 'on-delivery') && (
+                          <button 
+                            onClick={() => setPaymentMethod('cash')}
+                            className={`py-2 rounded-lg text-[10px] font-bold transition-all border flex items-center justify-center gap-1 ${paymentMethod === 'cash' ? 'bg-[#1a1a1a] text-white border-[#1a1a1a] shadow-lg' : 'bg-white text-gray-600 border-gray-200 hover:border-[#1a1a1a]'}`}
+                          >
+                            Cash
+                          </button>
+                        )}
                         <button 
                           onClick={() => setPaymentMethod('transfer')}
                           className={`py-2 rounded-lg text-[10px] font-bold transition-all border flex items-center justify-center gap-1 ${paymentMethod === 'transfer' ? 'bg-[#1a1a1a] text-white border-[#1a1a1a] shadow-lg' : 'bg-white text-gray-600 border-gray-200 hover:border-[#1a1a1a]'}`}
                         >
-                          {orderType === 'delivery' ? 'Paid Before Delivery' : <><Landmark size={12} /> Transfer</>}
+                          Transfer
                         </button>
                         <button 
                           onClick={() => setPaymentMethod('card')}
                           className={`py-2 rounded-lg text-[10px] font-bold transition-all border flex items-center justify-center gap-1 ${paymentMethod === 'card' ? 'bg-[#1a1a1a] text-white border-[#1a1a1a] shadow-lg' : 'bg-white text-gray-600 border-gray-200 hover:border-[#1a1a1a]'}`}
                         >
-                          {orderType === 'delivery' ? 'Pay on Delivery' : <><CreditCard size={12} /> Bank Card</>}
+                          <CreditCard size={12} /> Card
                         </button>
                       </div>
-                      <p className="text-[9px] text-gray-400 mt-1 italic">* {orderType === 'delivery' ? 'Payment method for delivery' : 'Verification will be done manually at the counter'}</p>
+                      <p className="text-[9px] text-gray-400 mt-1 italic">* {orderType === 'delivery' ? 'Payment method for delivery' : 'Payment method for in-shop purchase'}</p>
                     </div>
 
                     <div className="space-y-3 pt-4 border-t border-black/5">

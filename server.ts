@@ -193,10 +193,16 @@ io.on('connection', (socket) => {
       await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(255)`;
       await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50)`;
       await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT 'pending'`;
+      await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS stock_reduced BOOLEAN DEFAULT FALSE`;
       await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS staff_id INTEGER REFERENCES users(id)`;
       await sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(255)`;
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT`;
       await sql`CREATE TABLE IF NOT EXISTS settings (key VARCHAR(255) PRIMARY KEY, value VARCHAR(255) NOT NULL)`;
+      await sql`CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`;
       await sql`INSERT INTO settings (key, value) VALUES ('exchange_rate', '1') ON CONFLICT (key) DO NOTHING`;
       await sql`CREATE TABLE IF NOT EXISTS feedback (
         id SERIAL PRIMARY KEY,
@@ -679,13 +685,45 @@ io.on('connection', (socket) => {
 
   async function logActivity(userId: number, action: string, details?: any) {
     try {
-      
-      await sql`
+      const result = await sql`
         INSERT INTO activities (user_id, action, details)
         VALUES (${userId}, ${action}, ${details ? JSON.stringify(details) : null})
+        RETURNING *
       `;
+      
+      const activity = result[0];
+      // Get user name for the activity
+      const userRes = await sql`SELECT name FROM users WHERE id = ${userId}`;
+      if (userRes.length > 0) {
+        activity.user_name = userRes[0].name;
+      }
+      
+      io.emit('activityAdded', activity);
     } catch (error) {
       console.error('Failed to log activity:', error);
+    }
+  }
+
+  async function reduceStock(orderId: number | string) {
+    try {
+      // Check if already reduced
+      const order = await sql`SELECT stock_reduced FROM orders WHERE id = ${orderId}`;
+      if (order.length === 0 || order[0].stock_reduced) return;
+
+      const items = await sql`SELECT product_id, quantity FROM order_items WHERE order_id = ${orderId}`;
+      
+      for (const item of items) {
+        await sql`
+          UPDATE products 
+          SET stock_quantity = GREATEST(0, stock_quantity - ${item.quantity})
+          WHERE id = ${item.product_id}
+        `;
+      }
+
+      await sql`UPDATE orders SET stock_reduced = TRUE WHERE id = ${orderId}`;
+      console.log(`Stock reduced for order ${orderId}`);
+    } catch (error) {
+      console.error(`Failed to reduce stock for order ${orderId}:`, error);
     }
   }
 
@@ -696,7 +734,8 @@ io.on('connection', (socket) => {
       await sql`
         CREATE TABLE IF NOT EXISTS departments (
           id BIGSERIAL PRIMARY KEY,
-          name VARCHAR(255) UNIQUE NOT NULL
+          name VARCHAR(255) UNIQUE NOT NULL,
+          image_url TEXT
         )
       `;
       
@@ -976,22 +1015,41 @@ io.on('connection', (socket) => {
   app.get('/api/orders', authenticateToken, async (req: any, res) => {
     try {
       
-      const orders = await sql`
-        SELECT o.*, 
-               json_agg(json_build_object(
-                 'id', oi.id,
-                 'product_name', p.name,
-                 'quantity', oi.quantity,
-                 'price', oi.price_at_purchase,
-                 'image', p.image_url
-               )) as items
-        FROM orders o
-        JOIN order_items oi ON o.id = oi.order_id
-        JOIN products p ON oi.product_id = p.id
-        WHERE o.user_id = ${req.user.id}
-        GROUP BY o.id
-        ORDER BY o.created_at DESC
-      `;
+      let orders;
+      if (['super_admin', 'staff', 'accountant', 'secretary', 'manager', 'counter_staff'].includes(req.user.role)) {
+        orders = await sql`
+          SELECT o.*, 
+                 json_agg(json_build_object(
+                   'id', oi.id,
+                   'product_name', p.name,
+                   'quantity', oi.quantity,
+                   'price', oi.price_at_purchase,
+                   'image', p.image_url
+                 )) as items
+          FROM orders o
+          JOIN order_items oi ON o.id = oi.order_id
+          JOIN products p ON oi.product_id = p.id
+          GROUP BY o.id
+          ORDER BY o.created_at DESC
+        `;
+      } else {
+        orders = await sql`
+          SELECT o.*, 
+                 json_agg(json_build_object(
+                   'id', oi.id,
+                   'product_name', p.name,
+                   'quantity', oi.quantity,
+                   'price', oi.price_at_purchase,
+                   'image', p.image_url
+                 )) as items
+          FROM orders o
+          JOIN order_items oi ON o.id = oi.order_id
+          JOIN products p ON oi.product_id = p.id
+          WHERE o.user_id = ${req.user.id}
+          GROUP BY o.id
+          ORDER BY o.created_at DESC
+        `;
+      }
       res.json(orders);
     } catch (error: any) {
       if (error.message?.includes('data transfer quota')) {
@@ -1246,6 +1304,10 @@ io.on('connection', (socket) => {
         UPDATE orders SET status = ${status} WHERE id = ${id}
       `;
 
+      if (status === 'PAID' || status === 'COMPLETED') {
+        await reduceStock(id);
+      }
+
       // Emit socket event for order status update
       const io = req.app.get('io');
       if (io) {
@@ -1478,6 +1540,8 @@ io.on('connection', (socket) => {
       const orderNumber = generateOrderNumber();
       await sql`UPDATE orders SET order_number = ${orderNumber} WHERE id = ${orderId}`;
       const finalOrderNumber = orderNumber;
+      
+      const fullOrder = await sql`SELECT * FROM orders WHERE id = ${orderId}`;
 
       const logUserId = isStaff ? req.user.id : (userId || req.user.id);
       await logActivity(logUserId, 'Placed Order', { order_id: orderId, order_number: finalOrderNumber, total_amount });
@@ -1489,15 +1553,20 @@ io.on('connection', (socket) => {
         `;
       }
 
-      await sql`
+      const transactionResult = await sql`
         INSERT INTO transactions (order_id, amount, payment_reference, payment_method)
         VALUES (${orderId}, ${total_amount}, ${payment_reference || null}, ${payment_method || 'card'})
+        RETURNING *
       `;
 
       // Emit socket event for new order
-      const io = req.app.get('io');
       if (io) {
-        io.emit('newOrder', { orderId, status: 'PLACED' });
+        io.emit('orderAdded', fullOrder[0]);
+        io.emit('transactionAdded', transactionResult[0]);
+      }
+
+      if (initialStatus === 'PAID') {
+        await reduceStock(orderId);
       }
 
       res.json({ success: true, orderId, orderNumber: finalOrderNumber });
@@ -1546,15 +1615,20 @@ io.on('connection', (socket) => {
         `;
       }
 
-      await sql`
+      const transactionResult = await sql`
         INSERT INTO transactions (order_id, amount, payment_reference, payment_method)
         VALUES (${orderId}, ${total_amount}, ${payment_reference || null}, ${payment_method || 'card'})
+        RETURNING *
       `;
 
       // Emit socket event for new order
-      const io = req.app.get('io');
       if (io) {
-        io.emit('newOrder', { orderId, status: 'PLACED' });
+        io.emit('newOrder', { orderId, status: initialStatus });
+        io.emit('transactionAdded', transactionResult[0]);
+      }
+
+      if (initialStatus === 'PAID') {
+        await reduceStock(orderId);
       }
 
       res.json({ success: true, orderId, orderNumber: finalOrderNumber });
@@ -1620,6 +1694,8 @@ io.on('connection', (socket) => {
         VALUES (${name}, ${price}, ${image_url}, ${finalStock}, ${department_id}, ${description || null}) 
         RETURNING *
       `;
+      const io = req.app.get('io');
+      io.emit('productAdded', result[0]);
       await logActivity(req.user.id, 'Added Product', { product_name: name, price });
       res.json(result[0]);
     } catch (error) {
@@ -1633,6 +1709,8 @@ io.on('connection', (socket) => {
       const { id } = req.params;
       
       await sql`DELETE FROM products WHERE id = ${id}`;
+      const io = req.app.get('io');
+      io.emit('productDeleted', id);
       await logActivity(req.user.id, 'Deleted Product', { product_id: id });
       res.json({ success: true });
     } catch (error) {
@@ -1665,6 +1743,8 @@ io.on('connection', (socket) => {
         WHERE id = ${id} 
         RETURNING *
       `;
+      const io = req.app.get('io');
+      io.emit('productUpdated', result[0]);
       await logActivity(req.user.id, 'Updated Product', { product_name: name, product_id: id });
       
       if (result.length === 0) {
@@ -1763,22 +1843,26 @@ io.on('connection', (socket) => {
         'Beverages', 'Frozen Foods', 'Meat', 'Seafood', 'Household'
       ];
 
-      for (const deptName of departments) {
-        // Insert department
-        await sql`INSERT INTO departments (name) VALUES (${deptName}) ON CONFLICT (name) DO NOTHING`;
-        const deptRes = await sql`SELECT id FROM departments WHERE name = ${deptName}`;
-        const deptId = deptRes[0].id;
+      // Batch insert departments
+      await sql`INSERT INTO departments (name) SELECT * FROM UNNEST(${departments}::text[]) AS name ON CONFLICT (name) DO NOTHING`;
+      
+      // Get all department IDs
+      const deptRes = await sql`SELECT id, name FROM departments WHERE name = ANY(${departments})`;
+      const deptMap = new Map(deptRes.map((d: any) => [d.name, d.id]));
 
-        // Insert 25 products
+      // Batch insert products
+      for (const deptName of departments) {
+        const deptId = deptMap.get(deptName);
         for (let i = 1; i <= 25; i++) {
           const productName = `${deptName} Item ${i}`;
-          await sql`
-            INSERT INTO products (name, price, stock_quantity, department_id, description)
-            VALUES (${productName}, ${Math.floor(Math.random() * 50) + 1}, 100, ${deptId}, 'Description for ${productName}')
-            ON CONFLICT (name) DO NOTHING
-          `;
+          const price = Math.floor(Math.random() * 50) + 1;
+          const description = `Description for ${productName}`;
+          await sql`INSERT INTO products (name, price, stock_quantity, department_id, description) 
+                    VALUES (${productName}, ${price}, 100, ${deptId}, ${description}) 
+                    ON CONFLICT (name) DO NOTHING`;
         }
       }
+      
       res.json({ success: true, message: 'Added 10 departments and 250 products' });
     } catch (error) {
       console.error('Seed error:', error);

@@ -2,19 +2,22 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { io } from 'socket.io-client';
 import { Product } from './constants/products';
-import { Trash2, Plus, Database, TrendingUp, Users, Package, Layers, DollarSign, Calendar, User as UserIcon, ShoppingBag, Menu, X, ChevronDown, Check, Edit, Activity, Settings, Search, MapPin, Phone, Shield, Printer } from 'lucide-react';
+import { Trash2, Plus, Database, TrendingUp, Users, Package, Layers, DollarSign, Calendar, User as UserIcon, ShoppingBag, Menu, X, ChevronDown, Check, Edit, Activity, Settings, Search, MapPin, Phone, Shield, Printer, Eye, EyeOff } from 'lucide-react';
 import { getApiUrl } from './utils/api';
 import { Currency, formatPrice } from './utils/currency';
 import { toast } from 'sonner';
 import { Logo } from './components/Logo';
+import { ProductsSection } from './components/admin/sections/ProductsSection';
+import { CurrencyToggle } from './components/CurrencyToggle';
 
 interface AdminDashboardProps {
   user: any;
   currency: Currency;
   onUpdateUser?: (user: any) => void;
+  onCurrencyChange: (currency: Currency) => void;
 }
 
-export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardProps) {
+export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange }: AdminDashboardProps) {
   const baseUrl = getApiUrl('');
   const [activeTab, setActiveTab] = useState<'pos' | 'products' | 'departments' | 'accounts' | 'staff' | 'transactions' | 'activities' | 'pending_orders' | 'settings'>(() => {
     return (localStorage.getItem('adminActiveTab') as any) || 'pos';
@@ -94,6 +97,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
   const [staffList, setStaffList] = useState<any[]>([]);
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffPassword, setNewStaffPassword] = useState('');
+  const [showStaffPassword, setShowStaffPassword] = useState(false);
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffRole, setNewStaffRole] = useState('accountant');
   const [newStaffContact, setNewStaffContact] = useState('');
@@ -145,6 +149,13 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
 
   const [editingStockId, setEditingStockId] = useState<string | null>(null);
   const [editStockValue, setEditStockValue] = useState('');
+
+  const pendingCount = useMemo(() => 
+    pendingOrders.filter(o => !o.status || (o.status.toUpperCase() !== 'COMPLETED' && o.status.toUpperCase() !== 'CANCELLED')).length
+  , [pendingOrders]);
+
+  const transactionCount = useMemo(() => transactions.length, [transactions]);
+  const activityCount = useMemo(() => allActivities.length, [allActivities]);
   
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [editProdName, setEditProdName] = useState('');
@@ -267,6 +278,31 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
     socket.on('newOrder', () => {
       fetchData(true);
       showMessage('New order received!', 'success');
+    });
+
+    socket.on('orderAdded', (newOrder) => {
+      setPendingOrders(prev => [newOrder, ...prev]);
+      showMessage('New order received!', 'success');
+    });
+
+    socket.on('transactionAdded', (newTransaction) => {
+      setTransactions(prev => [newTransaction, ...prev]);
+    });
+
+    socket.on('activityAdded', (newActivity) => {
+      setAllActivities(prev => [newActivity, ...prev]);
+    });
+
+    socket.on('productAdded', (newProduct) => {
+      setProducts(prev => [...prev, newProduct]);
+    });
+
+    socket.on('productUpdated', (updatedProduct) => {
+      setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+    });
+
+    socket.on('productDeleted', (deletedId) => {
+      setProducts(prev => prev.filter(p => p.id !== deletedId));
     });
 
     socket.on('orderStatusUpdate', () => {
@@ -441,7 +477,6 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
         setNewProdDept('');
         setNewProdStock('100');
         showMessage('Product added!');
-        fetchData();
       } else {
         const data = await res.json();
         showMessage(data.error || data.details || 'Failed to add product.', 'error');
@@ -501,7 +536,6 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
       if (res.ok) {
         showMessage('Product updated successfully.');
         setEditingProductId(null);
-        fetchData();
       } else {
         const data = await res.json();
         showMessage(data.error || 'Failed to update product.', 'error');
@@ -527,7 +561,6 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
           });
           if (res.ok) {
             showMessage('Product deleted!');
-            fetchData();
           } else {
             const data = await res.json();
             showMessage(data.error || 'Failed to delete product.', 'error');
@@ -859,6 +892,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
     e.preventDefault();
     
     const submitStaff = async () => {
+      const generatedStaffId = newStaffId || `STF-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
       const loadingToast = toast.loading('Creating staff account...');
       try {
         const res = await fetch(getApiUrl('/api/admin/staff'), {
@@ -873,7 +907,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
             name: newStaffName,
             role: newStaffRole,
             contact_info: newStaffContact,
-            staff_id: newStaffId,
+            staff_id: generatedStaffId,
             profile_image_url: newStaffImage,
             department_ids: newStaffDepartments
           })
@@ -1552,6 +1586,7 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
             <h1 className="text-3xl font-serif font-bold tracking-tight text-[#1a1a1a]">Zenith Admin</h1>
           </div>
           <div className="flex items-center gap-3">
+            <CurrencyToggle currency={currency} onCurrencyChange={onCurrencyChange} />
             <button 
               onClick={checkDbHealth}
               className="flex items-center gap-2 bg-gray-100 text-gray-600 hover:bg-gray-200 px-4 py-2 rounded-lg transition-colors font-medium text-sm"
@@ -1573,10 +1608,13 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
         <div className="relative mb-8">
           <button 
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="flex items-center gap-2 bg-white px-4 py-3 rounded-xl border border-black/5 shadow-sm hover:bg-gray-50 transition-colors font-bold text-[#1a1a1a]"
+            className="flex items-center gap-2 bg-white px-4 py-3 rounded-xl border border-black/5 shadow-sm hover:bg-gray-50 transition-colors font-bold text-[#1a1a1a] relative"
           >
             {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
             Menu
+            {(pendingCount > 0 || transactionCount > 0 || activityCount > 0) && !isMenuOpen && (
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#d35400] rounded-full border-2 border-white" />
+            )}
           </button>
           
           {isMenuOpen && (
@@ -1618,15 +1656,29 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                   <>
                     <button 
                       onClick={() => { setActiveTab('pending_orders'); setIsMenuOpen(false); }}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'pending_orders' ? 'bg-[#d35400] text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                      className={`flex items-center justify-between w-full px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'pending_orders' ? 'bg-[#d35400] text-white' : 'text-gray-600 hover:bg-gray-50'}`}
                     >
-                      <ShoppingBag size={18} /> Pending Orders
+                      <div className="flex items-center gap-3">
+                        <ShoppingBag size={18} /> Pending Orders
+                      </div>
+                      {pendingCount > 0 && (
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === 'pending_orders' ? 'bg-white text-[#d35400]' : 'bg-[#d35400] text-white'}`}>
+                          {pendingCount}
+                        </span>
+                      )}
                     </button>
                     <button 
                       onClick={() => { setActiveTab('transactions'); setIsMenuOpen(false); }}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'transactions' ? 'bg-[#d35400] text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                      className={`flex items-center justify-between w-full px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'transactions' ? 'bg-[#d35400] text-white' : 'text-gray-600 hover:bg-gray-50'}`}
                     >
-                      <DollarSign size={18} /> Transactions
+                      <div className="flex items-center gap-3">
+                        <DollarSign size={18} /> Transactions
+                      </div>
+                      {transactionCount > 0 && (
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === 'transactions' ? 'bg-white text-[#d35400]' : 'bg-[#d35400] text-white'}`}>
+                          {transactionCount}
+                        </span>
+                      )}
                     </button>
                   </>
                 )}
@@ -1641,9 +1693,16 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                 {(user?.role === 'super_admin' || user?.role === 'manager') && (
                   <button 
                     onClick={() => { setActiveTab('activities'); setIsMenuOpen(false); }}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'activities' ? 'bg-[#d35400] text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                    className={`flex items-center justify-between w-full px-4 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === 'activities' ? 'bg-[#d35400] text-white' : 'text-gray-600 hover:bg-gray-50'}`}
                   >
-                    <Activity size={18} /> Activities
+                    <div className="flex items-center gap-3">
+                      <Activity size={18} /> Activities
+                    </div>
+                    {activityCount > 0 && (
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === 'activities' ? 'bg-white text-[#d35400]' : 'bg-[#d35400] text-white'}`}>
+                        {activityCount}
+                      </span>
+                    )}
                   </button>
                 )}
                 {(user?.role === 'super_admin' || user?.role === 'manager') && (
@@ -2618,264 +2677,52 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
           )}
 
           {activeTab === 'products' ? (
-            <motion.div 
-              key="products"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="bg-white p-6 rounded-2xl border border-black/5 shadow-sm"
-            >
-              <div className="flex items-center justify-between mb-8 border-b border-black/5 pb-4">
-                <h2 className="text-xl font-serif font-bold">Product Management</h2>
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">{products.length} Items</span>
-              </div>
-              
-              <form onSubmit={addProduct} className="space-y-4 mb-8 bg-gray-50/50 p-4 rounded-xl border border-black/5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Product Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Wagyu Ribeye"
-                    value={newProdName}
-                    onChange={(e) => setNewProdName(e.target.value)}
-                    className="w-full bg-white border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:border-[#d35400] transition-colors"
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Price ({currency === 'USD' ? '$' : '₦'})</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={newProdPrice}
-                    onChange={(e) => setNewProdPrice(e.target.value)}
-                    className="w-full bg-white border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:border-[#d35400] transition-colors"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Description (Optional)</label>
-                <textarea
-                  placeholder="Describe the product..."
-                  value={newProdDescription}
-                  onChange={(e) => setNewProdDescription(e.target.value)}
-                  className="w-full bg-white border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:border-[#d35400] transition-colors resize-none"
-                  rows={2}
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Department</label>
-                  <select
-                    value={newProdDept}
-                    onChange={(e) => setNewProdDept(e.target.value)}
-                    className="w-full bg-white border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:border-[#d35400] transition-colors text-[#1a1a1a]"
-                    required
-                  >
-                    <option value="" disabled>Select Department</option>
-                    {departments.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Product Image</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      placeholder="Image URL"
-                      value={newProdImage}
-                      onChange={(e) => setNewProdImage(e.target.value)}
-                      className="flex-1 bg-white border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:border-[#d35400] transition-colors text-sm min-w-0"
-                    />
-                    <label className="bg-[#1a1a1a] hover:bg-[#d35400] text-white px-4 py-2 rounded-lg cursor-pointer flex items-center justify-center transition-all duration-300 whitespace-nowrap text-sm font-medium">
-                      {uploadingImage ? '...' : 'Upload'}
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden" 
-                        onChange={handleImageUpload}
-                      />
-                    </label>
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Initial Stock</label>
-                  <input
-                    type="number"
-                    placeholder="100"
-                    value={newProdStock}
-                    onChange={(e) => setNewProdStock(e.target.value)}
-                    className="w-full bg-white border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:border-[#d35400] transition-colors"
-                  />
-                </div>
-              </div>
-              <button type="submit" className="w-full bg-[#d35400] hover:bg-[#e67e22] text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 transition-all duration-300 font-bold shadow-lg shadow-[#d35400]/20">
-                <Plus size={20} /> Add Product to Menu
-              </button>
-            </form>
-
-            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-              {loading ? (
-                <div className="flex justify-center py-12">
-                  <div className="w-10 h-10 border-4 border-[#d35400] border-t-transparent rounded-full animate-spin"></div>
-                </div>
-              ) : products.map(prod => (
-                <div key={prod.id} className="flex flex-col bg-white p-4 rounded-xl border border-black/5 hover:border-[#d35400]/20 transition-all duration-300 shadow-sm">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-black/5 flex-shrink-0">
-                        <img src={prod.image} alt={prod.name} className="w-full h-full object-cover" />
-                      </div>
-                      <div>
-                        <p className="font-serif font-bold text-lg text-[#1a1a1a]">{prod.name}</p>
-                        {prod.description && (
-                          <p className="text-xs text-gray-500 line-clamp-1 mb-1">{prod.description}</p>
-                        )}
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-sm font-medium text-[#d35400]">{formatPrice(Number(prod.price), currency)}</span>
-                          <span className="text-gray-300">|</span>
-                          <span className="text-xs text-gray-500 uppercase tracking-wider">{prod.department}</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                      {editingProductId === prod.id ? (
-                        <div className="flex flex-col gap-3 w-full bg-gray-50 p-4 rounded-xl border border-black/5">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <input
-                              type="text"
-                              value={editProdName}
-                              onChange={(e) => setEditProdName(e.target.value)}
-                              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#d35400]"
-                              placeholder="Name"
-                            />
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={editProdPrice}
-                              onChange={(e) => setEditProdPrice(e.target.value)}
-                              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#d35400]"
-                              placeholder={`Price (${currency === 'USD' ? '$' : '₦'})`}
-                            />
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <select
-                              value={editProdDept}
-                              onChange={(e) => setEditProdDept(e.target.value)}
-                              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#d35400]"
-                            >
-                              {departments.map(dept => (
-                                <option key={dept} value={dept}>{dept}</option>
-                              ))}
-                            </select>
-                            <input
-                              type="number"
-                              value={editProdStock}
-                              onChange={(e) => setEditStockValue(e.target.value)}
-                              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#d35400]"
-                              placeholder="Stock"
-                            />
-                          </div>
-                          <textarea
-                            value={editProdDescription}
-                            onChange={(e) => setEditProdDescription(e.target.value)}
-                            className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#d35400] resize-none"
-                            placeholder="Description (Optional)"
-                            rows={2}
-                          />
-                          <div className="flex gap-2">
-                            <input
-                              type="url"
-                              value={editProdImage}
-                              onChange={(e) => setEditProdImage(e.target.value)}
-                              className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#d35400] min-w-0"
-                              placeholder="Image URL"
-                            />
-                            <label className="bg-[#1a1a1a] hover:bg-[#d35400] text-white px-3 py-2 rounded-lg cursor-pointer flex items-center justify-center transition-all text-xs font-medium whitespace-nowrap">
-                              {uploadingEditImage ? '...' : 'Upload'}
-                              <input 
-                                type="file" 
-                                accept="image/*" 
-                                className="hidden" 
-                                onChange={handleEditImageUpload}
-                              />
-                            </label>
-                          </div>
-                          <div className="flex gap-2 mt-2">
-                            <button 
-                              onClick={updateProduct}
-                              className="flex-1 bg-[#d35400] hover:bg-[#e67e22] text-white py-2 rounded-lg text-sm font-bold transition-all"
-                            >
-                              Save Changes
-                            </button>
-                            <button 
-                              onClick={() => setEditingProductId(null)}
-                              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg text-sm font-bold transition-all"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : editingStockId === prod.id ? (
-                        <div className="flex items-center gap-2">
-                          <input 
-                            type="number" 
-                            value={editStockValue}
-                            onChange={(e) => setEditStockValue(e.target.value)}
-                            className="w-20 bg-white border border-[#d35400] rounded-lg px-3 py-1.5 text-sm focus:outline-none"
-                            autoFocus
-                          />
-                          <button 
-                            onClick={() => updateStock(prod.id)}
-                            className="bg-[#d35400] hover:bg-[#e67e22] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                          >
-                            Save
-                          </button>
-                          <button 
-                            onClick={() => setEditingStockId(null)}
-                            className="bg-gray-100 hover:bg-gray-200 text-gray-500 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <button 
-                            className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors"
-                            onClick={() => {
-                              setEditingStockId(prod.id);
-                              setEditStockValue(prod.stock?.toString() || '0');
-                            }}
-                          >
-                            Stock: {prod.stock ?? 0}
-                          </button>
-                          <button 
-                            onClick={() => startEditingProduct(prod)} 
-                            className="text-xs font-bold text-[#d35400] bg-[#d35400]/10 px-3 py-2 rounded-lg hover:bg-[#d35400]/20 transition-colors uppercase tracking-wider"
-                          >
-                            Edit
-                          </button>
-                          <button onClick={() => deleteProduct(prod.id)} className="text-gray-400 hover:text-red-500 transition-colors p-2">
-                            <Trash2 size={20} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {products.length === 0 && !loading && (
-                <p className="text-gray-400 italic text-center py-12">No products found in the menu.</p>
-              )}
-            </div>
-          </motion.div>
+            <ProductsSection 
+              products={products}
+              departments={departments}
+              loading={loading}
+              addProduct={addProduct}
+              updateProduct={updateProduct}
+              deleteProduct={deleteProduct}
+              updateStock={updateStock}
+              startEditingProduct={startEditingProduct}
+              editingProductId={editingProductId}
+              setEditingProductId={setEditingProductId}
+              editProdName={editProdName}
+              setEditProdName={setEditProdName}
+              editProdPrice={editProdPrice}
+              setEditProdPrice={setEditProdPrice}
+              editProdDescription={editProdDescription}
+              setEditProdDescription={setEditProdDescription}
+              editProdImage={editProdImage}
+              setEditProdImage={setEditProdImage}
+              editProdDept={editProdDept}
+              setEditProdDept={setEditProdDept}
+              editProdStock={editProdStock}
+              setEditStockValue={setEditStockValue}
+              editingStockId={editingStockId}
+              setEditingStockId={setEditingStockId}
+              editStockValue={editStockValue}
+              uploadingImage={uploadingImage}
+              handleImageUpload={handleImageUpload}
+              uploadingEditImage={uploadingEditImage}
+              handleEditImageUpload={handleEditImageUpload}
+              currency={currency}
+              exchangeRate={exchangeRate}
+              minStockThreshold={minStockThreshold}
+              newProdName={newProdName}
+              setNewProdName={setNewProdName}
+              newProdPrice={newProdPrice}
+              setNewProdPrice={setNewProdPrice}
+              newProdDescription={newProdDescription}
+              setNewProdDescription={setNewProdDescription}
+              newProdImage={newProdImage}
+              setNewProdImage={setNewProdImage}
+              newProdDept={newProdDept}
+              setNewProdDept={setNewProdDept}
+              newProdStock={newProdStock}
+              setNewProdStock={setNewProdStock}
+            />
           ) : null}
 
           {activeTab === 'transactions' && (user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'secretary' || user?.role === 'staff' || user?.role === 'manager' || user?.role === 'counter_staff') && (
@@ -3183,25 +3030,42 @@ export function AdminDashboard({ user, currency, onUpdateUser }: AdminDashboardP
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Password</label>
-                    <input
-                      type="password"
-                      required
-                      value={newStaffPassword}
-                      onChange={(e) => setNewStaffPassword(e.target.value)}
-                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#d35400]"
-                      placeholder="••••••••"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showStaffPassword ? "text" : "password"}
+                        required
+                        value={newStaffPassword}
+                        onChange={(e) => setNewStaffPassword(e.target.value)}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#d35400]"
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowStaffPassword(!showStaffPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showStaffPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Staff ID</label>
-                    <input
-                      type="text"
-                      required
-                      value={newStaffId}
-                      onChange={(e) => setNewStaffId(e.target.value)}
-                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#d35400]"
-                      placeholder="ZEN-001"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newStaffId}
+                        onChange={(e) => setNewStaffId(e.target.value)}
+                        className="flex-1 bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#d35400]"
+                        placeholder="ZEN-001 (Auto-generated if empty)"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setNewStaffId(`STF-${Math.random().toString(36).substring(2, 8).toUpperCase()}`)}
+                        className="bg-gray-100 text-gray-600 px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-200"
+                      >
+                        Generate
+                      </button>
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Profile Image</label>

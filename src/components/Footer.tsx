@@ -4,12 +4,12 @@ import { getApiUrl } from '../utils/api';
 
 interface FooterProps {
   user: any;
-  onAdminClick: () => void;
+  onLinkClick: (link: string) => void;
 }
 
-export function Footer({ user, onAdminClick }: FooterProps) {
+export function Footer({ user, onLinkClick }: FooterProps) {
   const [email, setEmail] = useState('');
-  const [subscribed, setSubscribed] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [healthStatus, setHealthStatus] = useState<'checking' | 'ok' | 'error'>('checking');
 
   useEffect(() => {
@@ -30,17 +30,34 @@ export function Footer({ user, onAdminClick }: FooterProps) {
     return () => clearInterval(interval);
   }, []);
 
-  const handleSubscribe = (e: React.FormEvent) => {
+  const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email) {
-      setSubscribed(true);
-      setEmail('');
-      setTimeout(() => setSubscribed(false), 3000);
+    if (!email) return;
+
+    setStatus('loading');
+    try {
+      const res = await fetch(getApiUrl('/api/newsletter'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (res.ok) {
+        setStatus('success');
+        setEmail('');
+        setTimeout(() => setStatus('idle'), 3000);
+      } else {
+        setStatus('error');
+      }
+    } catch (error) {
+      setStatus('error');
     }
   };
 
   return (
-    <footer className="bg-[#1a1a1a] text-white pt-20 pb-12 border-t border-black/5 relative overflow-hidden">
+    <footer className="bg-[#1a1a1a] text-white pt-20 pb-12 border-t border-white/5 relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8 mb-16">
           
@@ -67,10 +84,10 @@ export function Footer({ user, onAdminClick }: FooterProps) {
           <div>
             <h4 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-6">Explore</h4>
             <ul className="space-y-4">
-              <li><a href="#" className="text-gray-300 hover:text-[#d35400] text-sm transition-colors">Our Story</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-[#d35400] text-sm transition-colors">Departments</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-[#d35400] text-sm transition-colors">Member Vault</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-[#d35400] text-sm transition-colors">Journal</a></li>
+              <li><button onClick={() => onLinkClick('our-story')} className="text-gray-300 hover:text-[#d35400] text-sm transition-colors">Our Story</button></li>
+              <li><button onClick={() => onLinkClick('departments')} className="text-gray-300 hover:text-[#d35400] text-sm transition-colors">Departments</button></li>
+              <li><button onClick={() => onLinkClick('member-vault')} className="text-gray-300 hover:text-[#d35400] text-sm transition-colors">Member Vault</button></li>
+              <li><button onClick={() => onLinkClick('journal')} className="text-gray-300 hover:text-[#d35400] text-sm transition-colors">Journal</button></li>
             </ul>
           </div>
 
@@ -113,15 +130,21 @@ export function Footer({ user, onAdminClick }: FooterProps) {
               />
               <button 
                 type="submit"
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#d35400] rounded-lg flex items-center justify-center text-white hover:bg-[#e65c00] transition-colors"
+                disabled={status === 'loading'}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#d35400] rounded-lg flex items-center justify-center text-white hover:bg-[#e65c00] transition-colors disabled:opacity-50"
                 title="Subscribe"
               >
                 <ArrowRight size={16} />
               </button>
             </form>
-            {subscribed && (
+            {status === 'success' && (
               <p className="text-[#d35400] text-xs mt-3 font-medium animate-in fade-in">
                 Thank you for subscribing!
+              </p>
+            )}
+            {status === 'error' && (
+              <p className="text-red-500 text-xs mt-3 font-medium animate-in fade-in">
+                An error occurred. Please try again.
               </p>
             )}
           </div>
@@ -143,14 +166,8 @@ export function Footer({ user, onAdminClick }: FooterProps) {
           </div>
           
           <div className="flex items-center gap-6">
-            <a href="#" className="text-gray-500 hover:text-gray-300 text-xs tracking-widest uppercase transition-colors">Privacy</a>
-            <a href="#" className="text-gray-500 hover:text-gray-300 text-xs tracking-widest uppercase transition-colors">Terms</a>
-            <button 
-              onClick={onAdminClick}
-              className="text-gray-500 hover:text-[#d35400] text-xs tracking-widest uppercase transition-colors"
-            >
-              Admin
-            </button>
+            <button onClick={() => onLinkClick('privacy')} className="text-gray-500 hover:text-gray-300 text-xs tracking-widest uppercase transition-colors">Privacy</button>
+            <button onClick={() => onLinkClick('terms')} className="text-gray-500 hover:text-gray-300 text-xs tracking-widest uppercase transition-colors">Terms</button>
           </div>
         </div>
       </div>
