@@ -1,4 +1,5 @@
 import express from 'express';
+console.log('Server script starting...');
 import { neon } from '@neondatabase/serverless';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
@@ -143,8 +144,13 @@ io.on('connection', (socket) => {
 
   app.use(cors());
   app.use(express.json({ limit: '50mb' }));
-
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+  // Global error handler
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error('Global error handler caught:', err);
+    res.status(500).json({ error: 'Internal server error', details: err.message });
+  });
 
   // Health check
   app.get('/api/health', (req, res) => {
@@ -1964,6 +1970,8 @@ io.on('connection', (socket) => {
   if (!process.env.VERCEL) {
     httpServer.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on http://0.0.0.0:${PORT}`);
+      console.log(`APP_URL: ${APP_URL}`);
+      console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
     });
   }
 

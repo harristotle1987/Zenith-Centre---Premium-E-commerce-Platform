@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Logo } from './components/Logo';
 import { ProductsSection } from './components/admin/sections/ProductsSection';
 import { CurrencyToggle } from './components/CurrencyToggle';
+import { ProductModal } from './components/ProductModal';
 
 interface AdminDashboardProps {
   user: any;
@@ -79,6 +80,7 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
   
   // POS State
   const [posCart, setPosCart] = useState<{ product: Product, quantity: number }[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [posSearch, setPosSearch] = useState('');
   const [posPaymentMethod, setPosPaymentMethod] = useState<'card' | 'cash' | 'transfer'>('cash');
   const [posCustomerName, setPosCustomerName] = useState('');
@@ -2185,10 +2187,10 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-120px)] lg:h-[calc(100vh-120px)]"
+              className="flex flex-col gap-6 min-h-[calc(100vh-120px)]"
             >
               {/* Products Section */}
-              <motion.div layout className="flex-1 bg-white p-4 sm:p-6 rounded-2xl border border-black/5 shadow-sm flex flex-col overflow-hidden min-h-[500px] lg:min-h-0">
+              <motion.div layout className="flex-1 bg-white p-4 sm:p-6 rounded-2xl border border-black/5 shadow-sm flex flex-col overflow-hidden min-h-[500px]">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                   <div className="flex items-center gap-4">
                     <h2 className="text-xl font-serif font-bold">Take Order</h2>
@@ -2226,7 +2228,7 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                 </div>
                 
                 <div className="h-[720px] overflow-y-scroll custom-scrollbar pr-2">
-                  <motion.div layout className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <motion.div layout className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
                     <AnimatePresence mode="popLayout">
                       {products.filter(p => p.name.toLowerCase().includes(posSearch.toLowerCase()) || p.department.toLowerCase().includes(posSearch.toLowerCase()) || p.id.toString().includes(posSearch)).map(product => (
                         <motion.div 
@@ -2270,7 +2272,7 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
               </motion.div>
 
               {/* Cart Section */}
-              <motion.div layout className="w-full lg:w-96 bg-white p-4 sm:p-6 rounded-2xl border border-black/5 shadow-sm flex flex-col lg:h-full min-h-[400px] lg:min-h-0">
+              <motion.div layout className="w-full bg-white p-4 sm:p-6 rounded-2xl border border-black/5 shadow-sm flex flex-col min-h-[400px]">
                 <h2 className="text-xl font-serif font-bold mb-6 flex items-center justify-between">
                   <span>Current Order</span>
                   <div className="flex items-center gap-2">
@@ -2497,7 +2499,7 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                               key={item.product.id} 
                               className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100"
                             >
-                              <div className="w-24 h-24 rounded-lg overflow-hidden bg-white flex-shrink-0">
+                              <div className="w-24 h-24 rounded-lg overflow-hidden bg-white flex-shrink-0 cursor-pointer" onClick={() => setSelectedProduct(item.product)}>
                                 <img src={item.product.image} alt={item.product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                               </div>
                               <div className="flex-1 min-w-0">
@@ -3374,6 +3376,22 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
           </AnimatePresence>
         </div>
       </div>
+      <ProductModal 
+        product={selectedProduct} 
+        onClose={() => setSelectedProduct(null)} 
+        onAddToCart={(product, quantity, customizations) => {
+          // Handle add to cart from modal if needed
+          setPosCart(prev => {
+            const existing = prev.find(item => item.product.id === product.id);
+            if (existing) {
+              return prev.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + quantity } : item);
+            }
+            return [...prev, { product, quantity }];
+          });
+        }}
+        currency={currency}
+        user={user}
+      />
     </div>
   );
 }
