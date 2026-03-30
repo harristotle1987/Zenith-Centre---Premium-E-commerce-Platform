@@ -1892,26 +1892,30 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                           </div>
                           
                           <div className="flex flex-col gap-2">
+                            {order.order_type === 'delivery' && (
+                              <div className="mb-3">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Delivery Status</p>
+                                <select
+                                  value={order.delivery_status || 'Placed'}
+                                  onChange={(e) => updateDeliveryStatus(order.id, e.target.value)}
+                                  className={`w-full py-2 px-3 rounded-xl font-bold focus:outline-none focus:ring-2 transition-all border cursor-pointer hover:shadow-md active:scale-95 ${
+                                    (order.delivery_status || 'Placed') === 'Delivered'
+                                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700 focus:ring-emerald-500'
+                                      : (order.delivery_status || 'Placed') === 'Out for Delivery'
+                                      ? 'bg-blue-50 border-blue-200 text-blue-700 focus:ring-blue-500'
+                                      : (order.delivery_status || 'Placed') === 'Preparing'
+                                      ? 'bg-amber-50 border-amber-200 text-amber-700 focus:ring-amber-500'
+                                      : 'bg-gray-50 border-gray-200 text-gray-700 focus:ring-gray-400'
+                                  }`}
+                                >
+                                  <option value="Placed">Placed</option>
+                                  <option value="Preparing">Preparing</option>
+                                  <option value="Out for Delivery">Out for Delivery</option>
+                                  <option value="Delivered">Delivered</option>
+                                </select>
+                              </div>
+                            )}
                             <div className="mb-2">
-                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Delivery Status</p>
-                              <select
-                                value={order.delivery_status || 'Placed'}
-                                onChange={(e) => updateDeliveryStatus(order.id, e.target.value)}
-                                className={`w-full mb-3 py-2 px-3 rounded-xl font-bold focus:outline-none focus:ring-2 transition-all border ${
-                                  (order.delivery_status || 'Placed') === 'Delivered'
-                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700 focus:ring-emerald-500'
-                                    : (order.delivery_status || 'Placed') === 'Out for Delivery'
-                                    ? 'bg-blue-50 border-blue-200 text-blue-700 focus:ring-blue-500'
-                                    : (order.delivery_status || 'Placed') === 'Preparing'
-                                    ? 'bg-amber-50 border-amber-200 text-amber-700 focus:ring-amber-500'
-                                    : 'bg-gray-50 border-gray-200 text-gray-700 focus:ring-gray-400'
-                                }`}
-                              >
-                                <option value="Placed">Placed</option>
-                                <option value="Preparing">Preparing</option>
-                                <option value="Out for Delivery">Out for Delivery</option>
-                                <option value="Delivered">Delivered</option>
-                              </select>
                               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Order Status</p>
                               <select
                                 value={order.status}
@@ -2246,7 +2250,7 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                           }}
                           className={`bg-gray-50 rounded-xl p-2 border border-gray-100 cursor-pointer transition-colors hover:shadow-xl ${product.stock === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:border-[#d35400]'}`}
                         >
-                          <div className="aspect-square rounded-lg overflow-hidden mb-2 bg-white relative">
+                          <div className="h-48 rounded-lg overflow-hidden mb-2 bg-white relative">
                             <span className="absolute top-2 left-2 bg-black/70 text-white text-[10px] px-2 py-1 rounded-md font-mono">#{product.id}</span>
                             {product.stock < minStockThreshold && (
                               <span className="absolute top-2 right-2 bg-red-500 text-white text-[10px] px-2 py-1 rounded-md font-bold">Low Stock</span>
@@ -2493,7 +2497,7 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                               key={item.product.id} 
                               className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100"
                             >
-                              <div className="w-12 h-12 rounded-lg overflow-hidden bg-white flex-shrink-0">
+                              <div className="w-24 h-24 rounded-lg overflow-hidden bg-white flex-shrink-0">
                                 <img src={item.product.image} alt={item.product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                               </div>
                               <div className="flex-1 min-w-0">
@@ -2747,6 +2751,7 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
               editProdDept={editProdDept}
               setEditProdDept={setEditProdDept}
               editProdStock={editProdStock}
+              setEditProdStock={setEditProdStock}
               setEditStockValue={setEditStockValue}
               editingStockId={editingStockId}
               setEditingStockId={setEditingStockId}

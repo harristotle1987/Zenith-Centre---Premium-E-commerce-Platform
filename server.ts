@@ -229,10 +229,16 @@ io.on('connection', (socket) => {
   const authenticateToken = (req: any, res: any, next: any) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
-    if (!token) return res.sendStatus(401);
+    if (!token) {
+      console.log('authenticateToken: No token provided');
+      return res.sendStatus(401);
+    }
 
     jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-      if (err) return res.sendStatus(403);
+      if (err) {
+        console.log('authenticateToken: Token verification failed:', err.message);
+        return res.sendStatus(403);
+      }
       req.user = user;
       next();
     });
@@ -240,7 +246,12 @@ io.on('connection', (socket) => {
 
   const authorizeRole = (roles: string[]) => {
     return (req: any, res: any, next: any) => {
-      if (!req.user || !roles.includes(req.user.role)) {
+      if (!req.user) {
+        console.log('authorizeRole: No user in request');
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      if (!roles.includes(req.user.role)) {
+        console.log('authorizeRole: User role', req.user.role, 'not in allowed roles:', roles);
         return res.status(403).json({ error: 'Access denied' });
       }
       next();
@@ -422,7 +433,7 @@ io.on('connection', (socket) => {
       // Send success message to parent window and close popup
       res.send(`
         <html>
-          <body>
+          <body style="background: white;">
             <script>
               if (window.opener) {
                 window.opener.postMessage({ 
@@ -435,7 +446,6 @@ io.on('connection', (socket) => {
                 window.location.href = '/';
               }
             </script>
-            <p>Authentication successful. This window should close automatically.</p>
           </body>
         </html>
       `);
@@ -1109,8 +1119,8 @@ io.on('connection', (socket) => {
   });
 
   app.get('/api/admin/accounts', authenticateToken, authorizeRole(['super_admin', 'staff', 'accountant', 'secretary', 'manager', 'counter_staff']), async (req: any, res) => {
+    console.log('GET /api/admin/accounts - User:', req.user.id, 'Role:', req.user.role);
     try {
-      
       const inflow = await sql`SELECT SUM(total_amount) as total FROM orders WHERE status = 'PAID' OR status = 'COMPLETED'`;
       const recentOrders = await sql`
         SELECT o.*, COALESCE(u.name, o.guest_name, 'Unknown Guest') as customer_name 
@@ -1121,8 +1131,10 @@ io.on('connection', (socket) => {
       `;
       
       await logActivity(req.user.id, 'Viewed Accounts Dashboard');
+      console.log('GET /api/admin/accounts - Success');
       res.json({ totalInflow: inflow[0].total || 0, recentOrders });
     } catch (error: any) {
+      console.error('Error fetching accounts:', error);
       if (error.message?.includes('data transfer quota')) {
         console.warn('Database quota exceeded, returning mock accounts data.');
         return res.json({ totalInflow: 0, recentOrders: [] });
@@ -1132,8 +1144,8 @@ io.on('connection', (socket) => {
   });
 
   app.get('/api/admin/transactions', authenticateToken, authorizeRole(['super_admin', 'staff', 'accountant', 'secretary', 'manager', 'counter_staff']), async (req: any, res) => {
+    console.log('GET /api/admin/transactions - User:', req.user.id, 'Role:', req.user.role);
     try {
-      
       const transactions = await sql`
         SELECT t.*, o.order_type, o.order_number,
                COALESCE(u.name, o.guest_name, 'Unknown Guest') as customer_name,
@@ -1155,9 +1167,11 @@ io.on('connection', (socket) => {
         LEFT JOIN users u ON o.user_id = u.id
         LEFT JOIN users s ON o.staff_id = s.id
         ORDER BY t.created_at DESC
+        LIMIT 100
       `;
       
       await logActivity(req.user.id, 'Viewed Transactions');
+      console.log('GET /api/admin/transactions - Success, count:', transactions.length);
       res.json(transactions);
     } catch (error: any) {
       if (error.message?.includes('data transfer quota')) {

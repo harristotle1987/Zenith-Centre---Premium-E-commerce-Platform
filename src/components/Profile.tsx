@@ -85,6 +85,12 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
     };
   }, [isAdmin]);
 
+  const activeDeliveryOrder = orders.find(o => 
+    o.order_type === 'delivery' && 
+    o.status !== 'COMPLETED' && 
+    o.status !== 'CANCELLED'
+  );
+
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -545,6 +551,53 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
                   </div>
                 )}
 
+                {/* Active Delivery Tracking */}
+                {activeDeliveryOrder && (
+                  <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100 mb-8 animate-in fade-in slide-in-from-top-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-bold text-blue-700 uppercase tracking-widest flex items-center gap-2">
+                        <MapPin size={16} /> Active Delivery
+                      </h3>
+                      <span className="text-[10px] font-bold bg-blue-100 text-blue-600 px-2 py-1 rounded-full uppercase tracking-widest">
+                        {activeDeliveryOrder.order_number || `#${activeDeliveryOrder.id}`}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-end mb-3">
+                      <div>
+                        <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">Current Status</p>
+                        <p className="text-lg font-serif font-bold text-blue-900">
+                          {activeDeliveryOrder.delivery_status || 'Placed'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">Estimated Progress</p>
+                        <p className="text-sm font-bold text-blue-700">
+                          {activeDeliveryOrder.delivery_status === 'Delivered' ? '100%' : 
+                           activeDeliveryOrder.delivery_status === 'Out for Delivery' ? '75%' : 
+                           activeDeliveryOrder.delivery_status === 'Preparing' ? '50%' : '25%'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="w-full bg-blue-200 h-2 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ 
+                          width: activeDeliveryOrder.delivery_status === 'Delivered' ? '100%' : 
+                                 activeDeliveryOrder.delivery_status === 'Out for Delivery' ? '75%' : 
+                                 activeDeliveryOrder.delivery_status === 'Preparing' ? '50%' : '25%' 
+                        }}
+                        className="bg-blue-600 h-full transition-all duration-1000"
+                      />
+                    </div>
+                    <p className="text-[10px] text-blue-400 mt-3 italic">
+                      {activeDeliveryOrder.delivery_status === 'Delivered' ? 'Your order has been delivered! Enjoy.' : 
+                       activeDeliveryOrder.delivery_status === 'Out for Delivery' ? 'Our courier is on the way to your location.' : 
+                       activeDeliveryOrder.delivery_status === 'Preparing' ? 'We are carefully packing your items.' : 
+                       'Your order has been received and will be processed soon.'}
+                    </p>
+                  </div>
+                )}
+
                 <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 bg-white z-10 pb-2">
                     <div className="flex items-center gap-2">
@@ -593,6 +646,11 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
                               Status {sortConfig.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
                             <th 
+                              className="pb-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-[#d35400]"
+                            >
+                              Delivery
+                            </th>
+                            <th 
                               className="pb-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-[#d35400] text-right"
                               onClick={() => handleSort('total_amount')}
                             >
@@ -622,6 +680,9 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
                                   }`}></div>
                                   <span className="text-[10px] font-bold text-gray-700 uppercase tracking-widest">{order.status}</span>
                                 </div>
+                              </td>
+                              <td className="py-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                                {order.order_type === 'delivery' ? (order.delivery_status || 'Placed') : '-'}
                               </td>
                               <td className="py-4 text-right">
                                 <div className="flex flex-col items-end">
@@ -707,46 +768,48 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
                   </div>
 
                   {/* Delivery Status */}
-                  <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">Delivery Status</p>
-                        <span className="text-xs font-bold text-blue-700 uppercase tracking-widest">
-                          {selectedOrder.delivery_status || 'Placed'}
-                        </span>
+                  {selectedOrder.order_type === 'delivery' && (
+                    <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">Delivery Status</p>
+                          <span className="text-xs font-bold text-blue-700 uppercase tracking-widest">
+                            {selectedOrder.delivery_status || 'Placed'}
+                          </span>
+                        </div>
+                        {isAdmin && (
+                          <select
+                            value={selectedOrder.delivery_status || 'Placed'}
+                            onChange={(e) => updateDeliveryStatus(selectedOrder.id, e.target.value)}
+                            className={`text-xs font-bold py-1 px-2 rounded-lg focus:outline-none focus:ring-2 transition-all border cursor-pointer hover:shadow-md active:scale-95 ${
+                              (selectedOrder.delivery_status || 'Placed') === 'Delivered'
+                                ? 'bg-emerald-50 border-emerald-200 text-emerald-700 focus:ring-emerald-500'
+                                : (selectedOrder.delivery_status || 'Placed') === 'Out for Delivery'
+                                ? 'bg-blue-50 border-blue-200 text-blue-700 focus:ring-blue-500'
+                                : (selectedOrder.delivery_status || 'Placed') === 'Preparing'
+                                ? 'bg-amber-50 border-amber-200 text-amber-700 focus:ring-amber-500'
+                                : 'bg-white border-gray-200 text-gray-700 focus:ring-gray-400'
+                            }`}
+                          >
+                            <option value="Placed">Placed</option>
+                            <option value="Preparing">Preparing</option>
+                            <option value="Out for Delivery">Out for Delivery</option>
+                            <option value="Delivered">Delivered</option>
+                          </select>
+                        )}
                       </div>
-                      {isAdmin && (
-                        <select
-                          value={selectedOrder.delivery_status || 'Placed'}
-                          onChange={(e) => updateDeliveryStatus(selectedOrder.id, e.target.value)}
-                          className={`text-xs font-bold py-1 px-2 rounded-lg focus:outline-none focus:ring-2 transition-all border ${
-                            (selectedOrder.delivery_status || 'Placed') === 'Delivered'
-                              ? 'bg-emerald-50 border-emerald-200 text-emerald-700 focus:ring-emerald-500'
-                              : (selectedOrder.delivery_status || 'Placed') === 'Out for Delivery'
-                              ? 'bg-blue-50 border-blue-200 text-blue-700 focus:ring-blue-500'
-                              : (selectedOrder.delivery_status || 'Placed') === 'Preparing'
-                              ? 'bg-amber-50 border-amber-200 text-amber-700 focus:ring-amber-500'
-                              : 'bg-white border-gray-200 text-gray-700 focus:ring-gray-400'
-                          }`}
-                        >
-                          <option value="Placed">Placed</option>
-                          <option value="Preparing">Preparing</option>
-                          <option value="Out for Delivery">Out for Delivery</option>
-                          <option value="Delivered">Delivered</option>
-                        </select>
-                      )}
+                      <div className="w-full bg-blue-200 h-1.5 rounded-full overflow-hidden mt-3">
+                        <div 
+                          className="bg-blue-600 h-full transition-all duration-500"
+                          style={{ 
+                            width: selectedOrder.delivery_status === 'Delivered' ? '100%' : 
+                                   selectedOrder.delivery_status === 'Out for Delivery' ? '75%' : 
+                                   selectedOrder.delivery_status === 'Preparing' ? '50%' : '25%' 
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full bg-blue-200 h-1.5 rounded-full overflow-hidden mt-3">
-                      <div 
-                        className="bg-blue-600 h-full transition-all duration-500"
-                        style={{ 
-                          width: selectedOrder.delivery_status === 'Delivered' ? '100%' : 
-                                 selectedOrder.delivery_status === 'Out for Delivery' ? '75%' : 
-                                 selectedOrder.delivery_status === 'Preparing' ? '50%' : '25%' 
-                        }}
-                      />
-                    </div>
-                  </div>
+                  )}
 
                   {/* Items */}
                   <div>
@@ -754,7 +817,7 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
                     <div className="space-y-3">
                       {selectedOrder.items?.map((item: any, idx: number) => (
                         <div key={idx} className="flex items-center gap-3 p-2 bg-white border border-black/5 rounded-xl">
-                          <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                          <div className="w-20 h-20 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
                             <img src={item.image} alt={item.product_name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                           </div>
                           <div className="flex-1 min-w-0">

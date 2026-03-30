@@ -8,8 +8,8 @@ export const ProductsSection = ({
   updateStock, startEditingProduct, editingProductId, setEditingProductId, 
   editProdName, setEditProdName, editProdPrice, setEditProdPrice, 
   editProdDescription, setEditProdDescription, editProdImage, setEditProdImage, 
-  editProdDept, setEditProdDept, editProdStock, setEditStockValue, 
-  editingStockId, setEditingStockId, editStockValue, uploadingImage, 
+  editProdDept, setEditProdDept, editProdStock, setEditProdStock, 
+  editingStockId, setEditingStockId, editStockValue, setEditStockValue, uploadingImage, 
   handleImageUpload, uploadingEditImage, handleEditImageUpload, 
   currency, exchangeRate, minStockThreshold, newProdName, setNewProdName, 
   newProdPrice, setNewProdPrice, newProdDescription, setNewProdDescription, 
@@ -188,7 +188,7 @@ export const ProductsSection = ({
                       <input
                         type="number"
                         value={editProdStock}
-                        onChange={(e) => setEditStockValue(e.target.value)}
+                        onChange={(e) => setEditProdStock(e.target.value)}
                         className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#d35400]"
                         placeholder="Stock"
                       />
