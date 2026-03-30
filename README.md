@@ -20,6 +20,12 @@ Zenith Centre is a sophisticated, full-stack e-commerce and Point of Sale (POS) 
   - **Super Admin:** Full system oversight, financial analytics, and staff management.
   - **Staff (Secretary/Accountant/Barista):** Manage orders, update inventory, and handle daily operations.
 - **Real-Time POS:** A dedicated interface for staff to place orders directly for walk-in customers.
+- **Product Customization:**
+  - **Manual Options:** Staff can manually select available **Colors** and **Sizes** for each product.
+  - **Dynamic Selection:** Customers and staff can select these options during the checkout process.
+- **Advanced Discounting:**
+  - **Bold Display:** Discounts are prominently displayed as "SAVE X% OFF" banners on product cards.
+  - **Price Tracking:** System tracks both `original_price` and `discounted_price` for transparency.
 - **Inventory Management:** 
   - Dynamic stock tracking with automatic decrementing on sales.
   - Manual stock adjustments and product management (CRUD).
@@ -28,6 +34,50 @@ Zenith Centre is a sophisticated, full-stack e-commerce and Point of Sale (POS) 
 - **Real-Time Notifications:** Instant updates on new orders via **Socket.io**.
 - **Live Order Tracking:** Customers see status changes instantly without refreshing.
 - **Delivery Status Tracking:** Track order progress through stages: Placed, Preparing, Out for Delivery, and Delivered.
+
+---
+
+## 🚀 New Product Features (Updates)
+
+The system now supports advanced product configurations and visual enhancements:
+
+### 🎨 Manual Product Options
+Staff can now define specific variations for products directly from the Admin Dashboard:
+- **Colors:** Add multiple color codes or names (e.g., `#FF0000` or `Red`).
+- **Sizes:** Define available sizes (e.g., `Small`, `Medium`, `Large`, `XL`).
+- **Optional:** These fields are optional and only appear if configured.
+
+### 🏷️ Visible Discounts
+Discounts are now more visible than ever:
+- **Banner:** A bold vertical banner on the left side of the product image.
+- **Auto-Calculation:** System handles the display of the original price vs. the discounted price.
+
+### 🛠️ SQL Schema Updates (Idempotent)
+The database schema has been updated to support these features using safe, idempotent scripts:
+
+```sql
+-- Safely add new columns to the products table
+ALTER TABLE products ADD COLUMN IF NOT EXISTS original_price DECIMAL(10, 2);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS discount_percentage INTEGER;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS options JSONB;
+
+-- Updated products table structure
+CREATE TABLE IF NOT EXISTS products (
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  price DECIMAL(10, 2) NOT NULL,           -- Current/discounted price
+  original_price DECIMAL(10, 2),          -- Price before discount
+  discount_percentage INTEGER,            -- Discount percentage
+  image_url TEXT,
+  description TEXT,
+  stock_quantity INTEGER DEFAULT 100,
+  department_id BIGINT REFERENCES departments(id) ON DELETE CASCADE,
+  options JSONB                           -- Stores colors and sizes as JSON
+);
+
+-- Updated order_items to track customizations
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS customizations JSONB;
+```
 
 ---
 

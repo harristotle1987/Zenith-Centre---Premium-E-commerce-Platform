@@ -2,6 +2,8 @@ export interface Product {
   id: string;
   name: string;
   price: number;
+  originalPrice?: number;
+  discountPercentage?: number;
   image: string;
   department: string;
   stock?: number;
@@ -28,7 +30,9 @@ export const PRODUCTS: Product[] = [
   {
     id: "1",
     name: "Organic Hass Avocado",
-    price: 2.50,
+    price: 2.00,
+    originalPrice: 2.50,
+    discountPercentage: 20,
     image: "https://loremflickr.com/800/800/avocado?lock=1",
     department: "Organic Produce",
     options: {
@@ -48,7 +52,9 @@ export const PRODUCTS: Product[] = [
   {
     id: "3",
     name: "Organic Baby Spinach",
-    price: 3.49,
+    price: 2.44,
+    originalPrice: 3.49,
+    discountPercentage: 30,
     image: "https://loremflickr.com/800/800/spinach?lock=3",
     department: "Organic Produce",
     options: {

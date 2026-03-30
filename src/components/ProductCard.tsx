@@ -29,11 +29,18 @@ export const ProductCard: React.FC<Props> = ({ product, onAddToCart, onViewDetai
           className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700"
           referrerPolicy="no-referrer"
         />
-        <div className="absolute top-4 left-4">
+        <div className="absolute top-4 right-4">
           <span className="px-3 py-1 bg-white/90 backdrop-blur-md text-[#d35400] text-[10px] font-bold rounded-full shadow-sm uppercase tracking-wider">
             {product.department}
           </span>
         </div>
+        {product.discountPercentage && (
+          <div className="absolute top-0 left-0 h-full w-10 flex items-center justify-center bg-red-600/90 backdrop-blur-sm z-10">
+            <span className="text-white text-sm font-black uppercase tracking-tighter [writing-mode:vertical-lr] rotate-180">
+              SAVE {product.discountPercentage}% OFF
+            </span>
+          </div>
+        )}
       </div>
       
       <div className="p-6 flex flex-col flex-1 justify-between bg-white">
@@ -58,9 +65,16 @@ export const ProductCard: React.FC<Props> = ({ product, onAddToCart, onViewDetai
           </div>
 
           <div className="flex justify-between items-center">
-            <p className="text-xl text-[#1a1a1a] font-black tracking-tight">
-              {formatPrice(Number(product.price), currency)}
-            </p>
+            <div className="flex flex-col">
+              {product.originalPrice && (
+                <span className="text-xs text-gray-400 line-through">
+                  {formatPrice(Number(product.originalPrice), currency)}
+                </span>
+              )}
+              <p className="text-xl text-[#1a1a1a] font-black tracking-tight">
+                {formatPrice(Number(product.price), currency)}
+              </p>
+            </div>
             <button 
               onClick={(e) => {
                 e.stopPropagation();

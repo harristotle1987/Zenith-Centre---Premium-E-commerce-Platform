@@ -90,6 +90,8 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
   const [posOrderSuccess, setPosOrderSuccess] = useState<string | number | null>(null);
   const [posReceiptData, setPosReceiptData] = useState<any>(null);
   const [posOrderType, setPosOrderType] = useState<'in-shop' | 'take-away' | 'delivery'>('in-shop');
+  const [selectedPosProduct, setSelectedPosProduct] = useState<Product | null>(null);
+  const [posProductCustomizations, setPosProductCustomizations] = useState<any>({});
   const [searchTerm, setSearchTerm] = useState('');
 
   // Accounts State
@@ -130,10 +132,14 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
   
   const [newProdName, setNewProdName] = useState('');
   const [newProdPrice, setNewProdPrice] = useState('');
+  const [newProdOriginalPrice, setNewProdOriginalPrice] = useState('');
+  const [newProdDiscountPercentage, setNewProdDiscountPercentage] = useState('');
   const [newProdDescription, setNewProdDescription] = useState('');
   const [newProdImage, setNewProdImage] = useState('');
   const [newProdDept, setNewProdDept] = useState('');
   const [newProdStock, setNewProdStock] = useState('100');
+  const [newProdColors, setNewProdColors] = useState<string[]>([]);
+  const [newProdSizes, setNewProdSizes] = useState<string[]>([]);
   const [uploadingImage, setUploadingImage] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -162,10 +168,14 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [editProdName, setEditProdName] = useState('');
   const [editProdPrice, setEditProdPrice] = useState('');
+  const [editProdOriginalPrice, setEditProdOriginalPrice] = useState('');
+  const [editProdDiscountPercentage, setEditProdDiscountPercentage] = useState('');
   const [editProdDescription, setEditProdDescription] = useState('');
   const [editProdImage, setEditProdImage] = useState('');
   const [editProdDept, setEditProdDept] = useState('');
   const [editProdStock, setEditProdStock] = useState('');
+  const [editProdColors, setEditProdColors] = useState<string[]>([]);
+  const [editProdSizes, setEditProdSizes] = useState<string[]>([]);
   const [uploadingEditImage, setUploadingEditImage] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<any | null>(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
@@ -469,10 +479,16 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
         body: JSON.stringify({
           name: newProdName,
           price: parseFloat(newProdPrice),
+          original_price: newProdOriginalPrice ? parseFloat(newProdOriginalPrice) : null,
+          discount_percentage: newProdDiscountPercentage ? parseFloat(newProdDiscountPercentage) : null,
           description: newProdDescription,
           image_url: newProdImage || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=800',
           department_name: newProdDept,
-          stock_quantity: parseInt(newProdStock, 10) || 0
+          stock_quantity: parseInt(newProdStock, 10) || 0,
+          options: {
+            colors: newProdColors.length > 0 ? newProdColors : undefined,
+            sizes: newProdSizes.length > 0 ? newProdSizes : undefined
+          }
         })
       });
       if (res.ok) {
@@ -482,6 +498,8 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
         setNewProdImage('');
         setNewProdDept('');
         setNewProdStock('100');
+        setNewProdColors([]);
+        setNewProdSizes([]);
         showMessage('Product added!');
       } else {
         const data = await res.json();
@@ -512,10 +530,14 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
     setEditingProductId(prod.id);
     setEditProdName(prod.name);
     setEditProdPrice(prod.price.toString());
+    setEditProdOriginalPrice(prod.originalPrice?.toString() || '');
+    setEditProdDiscountPercentage(prod.discountPercentage?.toString() || '');
     setEditProdDescription(prod.description || '');
     setEditProdImage(prod.image);
     setEditProdDept(prod.department);
     setEditProdStock(prod.stock?.toString() || '0');
+    setEditProdColors(prod.options?.colors || []);
+    setEditProdSizes(prod.options?.sizes || []);
   };
 
   const updateProduct = async (e: React.FormEvent) => {
@@ -533,15 +555,23 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
         body: JSON.stringify({
           name: editProdName,
           price: parseFloat(editProdPrice),
+          original_price: editProdOriginalPrice ? parseFloat(editProdOriginalPrice) : null,
+          discount_percentage: editProdDiscountPercentage ? parseFloat(editProdDiscountPercentage) : null,
           description: editProdDescription,
           image_url: editProdImage || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=800',
           department_name: editProdDept,
-          stock_quantity: parseInt(editProdStock, 10) || 0
+          stock_quantity: parseInt(editProdStock, 10) || 0,
+          options: {
+            colors: editProdColors.length > 0 ? editProdColors : undefined,
+            sizes: editProdSizes.length > 0 ? editProdSizes : undefined
+          }
         })
       });
       if (res.ok) {
         showMessage('Product updated successfully.');
         setEditingProductId(null);
+        setEditProdColors([]);
+        setEditProdSizes([]);
       } else {
         const data = await res.json();
         showMessage(data.error || 'Failed to update product.', 'error');
@@ -2187,10 +2217,10 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="flex flex-col gap-6 min-h-[calc(100vh-120px)]"
+              className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-120px)]"
             >
               {/* Products Section */}
-              <motion.div layout className="flex-1 bg-white p-4 sm:p-6 rounded-2xl border border-black/5 shadow-sm flex flex-col overflow-hidden min-h-[500px]">
+              <motion.div layout className="flex-1 bg-white p-4 sm:p-6 rounded-2xl border border-black/5 shadow-sm flex flex-col overflow-hidden min-h-[500px] lg:min-h-0">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                   <div className="flex items-center gap-4">
                     <h2 className="text-xl font-serif font-bold">Take Order</h2>
@@ -2241,28 +2271,41 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                           key={product.id} 
                           onClick={() => {
                             if (product.stock > 0) {
-                              setPosCart(prev => {
-                                const existing = prev.find(item => item.product.id === product.id);
-                                if (existing) {
-                                  return prev.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
-                                }
-                                return [...prev, { product, quantity: 1 }];
-                              });
+                              if (product.options && Object.keys(product.options).length > 0) {
+                                setSelectedPosProduct(product);
+                                setPosProductCustomizations({});
+                              } else {
+                                setPosCart(prev => {
+                                  const existing = prev.find(item => item.product.id === product.id);
+                                  if (existing) {
+                                    return prev.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+                                  }
+                                  return [...prev, { product, quantity: 1 }];
+                                });
+                              }
                             }
                           }}
                           className={`bg-gray-50 rounded-xl p-2 border border-gray-100 cursor-pointer transition-colors hover:shadow-xl ${product.stock === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:border-[#d35400]'}`}
                         >
                           <div className="h-48 rounded-lg overflow-hidden mb-2 bg-white relative">
-                            <span className="absolute top-2 left-2 bg-black/70 text-white text-[10px] px-2 py-1 rounded-md font-mono">#{product.id}</span>
+                            <span className="absolute top-2 right-2 bg-black/70 text-white text-[10px] px-2 py-1 rounded-md font-mono z-10">#{product.id}</span>
+                            {product.discountPercentage && product.discountPercentage > 0 && (
+                              <span className="absolute top-2 left-2 bg-red-500 text-white text-[10px] px-2 py-1 rounded-md font-bold z-10">-{product.discountPercentage}%</span>
+                            )}
                             {product.stock < minStockThreshold && (
-                              <span className="absolute top-2 right-2 bg-red-500 text-white text-[10px] px-2 py-1 rounded-md font-bold">Low Stock</span>
+                              <span className="absolute bottom-2 left-2 bg-red-500 text-white text-[10px] px-2 py-1 rounded-md font-bold z-10">Low Stock</span>
                             )}
                             <img src={product.image} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                           </div>
                           <h3 className="font-bold text-sm text-gray-900 truncate">{product.name}</h3>
-                          <div className="flex items-center justify-between mt-1">
-                            <span className="text-[#d35400] font-bold text-sm">{formatPrice(Number(product.price), currency)}</span>
-                            <span className="text-xs text-gray-500">{product.stock} in stock</span>
+                          <div className="flex flex-col mt-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[#d35400] font-bold text-sm">{formatPrice(Number(product.price), currency)}</span>
+                              {product.originalPrice && product.originalPrice > product.price && (
+                                <span className="text-[10px] text-gray-400 line-through">{formatPrice(Number(product.originalPrice), currency)}</span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-gray-500">{product.stock} in stock</span>
                           </div>
                         </motion.div>
                       ))}
@@ -2272,7 +2315,7 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
               </motion.div>
 
               {/* Cart Section */}
-              <motion.div layout className="w-full bg-white p-4 sm:p-6 rounded-2xl border border-black/5 shadow-sm flex flex-col min-h-[400px]">
+              <motion.div layout className="w-full lg:w-[400px] bg-white p-4 sm:p-6 rounded-2xl border border-black/5 shadow-sm flex flex-col min-h-[400px] lg:min-h-0">
                 <h2 className="text-xl font-serif font-bold mb-6 flex items-center justify-between">
                   <span>Current Order</span>
                   <div className="flex items-center gap-2">
@@ -2496,7 +2539,7 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                               initial={{ opacity: 0, y: 20, scale: 0.95 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-                              key={item.product.id} 
+                              key={`${item.product.id}-${JSON.stringify((item as any).customizations || {})}`} 
                               className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100"
                             >
                               <div className="w-24 h-24 rounded-lg overflow-hidden bg-white flex-shrink-0 cursor-pointer" onClick={() => setSelectedProduct(item.product)}>
@@ -2504,7 +2547,21 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                               </div>
                               <div className="flex-1 min-w-0">
                                 <h4 className="font-bold text-sm truncate">{item.product.name}</h4>
-                                <div className="text-[#d35400] font-bold text-sm">{formatPrice(Number(item.product.price), currency)}</div>
+                                {(item as any).customizations && Object.entries((item as any).customizations).length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {Object.entries((item as any).customizations).map(([key, value]) => (
+                                      <span key={key} className="text-[9px] font-bold bg-white px-1.5 py-0.5 rounded border border-black/5 text-gray-500 uppercase tracking-tighter">
+                                        {key}: {String(value)}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="flex items-center gap-2 mt-1">
+                                  <div className="text-[#d35400] font-bold text-sm">{formatPrice(Number(item.product.price), currency)}</div>
+                                  {item.product.originalPrice && item.product.originalPrice > item.product.price && (
+                                    <div className="text-[10px] text-gray-400 line-through">{formatPrice(Number(item.product.originalPrice), currency)}</div>
+                                  )}
+                                </div>
                               </div>
                               <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 p-1">
                                 <motion.button 
@@ -2512,7 +2569,11 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                                   whileTap={{ scale: 0.9 }}
                                   onClick={() => {
                                     setPosCart(prev => {
-                                      const newCart = prev.map(i => i.product.id === item.product.id ? { ...i, quantity: i.quantity - 1 } : i).filter(i => i.quantity > 0);
+                                      const newCart = prev.map(i => 
+                                        (i.product.id === item.product.id && JSON.stringify((i as any).customizations) === JSON.stringify((item as any).customizations))
+                                          ? { ...i, quantity: i.quantity - 1 } 
+                                          : i
+                                      ).filter(i => i.quantity > 0);
                                       return newCart;
                                     });
                                   }}
@@ -2524,7 +2585,11 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                                   whileTap={{ scale: 0.9 }}
                                   onClick={() => {
                                     if (item.quantity < item.product.stock) {
-                                      setPosCart(prev => prev.map(i => i.product.id === item.product.id ? { ...i, quantity: i.quantity + 1 } : i));
+                                      setPosCart(prev => prev.map(i => 
+                                        (i.product.id === item.product.id && JSON.stringify((i as any).customizations) === JSON.stringify((item as any).customizations))
+                                          ? { ...i, quantity: i.quantity + 1 } 
+                                          : i
+                                      ));
                                     }
                                   }}
                                   className="w-6 h-6 flex items-center justify-center rounded"
@@ -2650,7 +2715,12 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                               },
                               signal: controller.signal,
                               body: JSON.stringify({
-                                items: posCart.map(item => ({ id: item.product.id, quantity: item.quantity, price: Number(item.product.price) })),
+                                items: posCart.map(item => ({ 
+                                  id: item.product.id, 
+                                  quantity: item.quantity, 
+                                  price: Number(item.product.price),
+                                  customizations: (item as any).customizations 
+                                })),
                                 total_amount: total,
                                 order_type: posOrderType,
                                 payment_method: posPaymentMethod,
@@ -2727,6 +2797,99 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                   </>
                 )}
               </motion.div>
+
+              {/* POS Product Options Modal */}
+              <AnimatePresence>
+                {selectedPosProduct && (
+                  <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedPosProduct(null)} />
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                      className="relative bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-black/5 flex flex-col"
+                    >
+                      <div className="p-6 border-b border-black/5 flex justify-between items-center bg-gray-50/50">
+                        <div>
+                          <h3 className="text-xl font-serif font-bold text-[#1a1a1a]">{selectedPosProduct.name}</h3>
+                          <p className="text-sm text-[#d35400] font-bold">{formatPrice(Number(selectedPosProduct.price), currency)}</p>
+                        </div>
+                        <button 
+                          onClick={() => setSelectedPosProduct(null)}
+                          className="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-gray-200 text-gray-400 hover:text-red-500 transition-all"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+
+                      <div className="p-6 space-y-6">
+                        {Object.entries(selectedPosProduct.options || {}).map(([key, values]) => (
+                          <div key={key}>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">{key}</p>
+                            <div className="flex flex-wrap gap-2">
+                              {Array.isArray(values) && values.map(value => {
+                                const isColor = key.toLowerCase() === 'colors' || key.toLowerCase() === 'color';
+                                const isValidHex = typeof value === 'string' && /^#([A-Fa-f0-9]{3}){1,2}$/.test(value);
+
+                                return (
+                                  <button
+                                    key={value}
+                                    onClick={() => setPosProductCustomizations((prev: any) => ({ ...prev, [key]: value }))}
+                                    className={`rounded-xl transition-all flex items-center justify-center gap-2 ${
+                                      isColor && isValidHex
+                                        ? `w-10 h-10 border-2 ${posProductCustomizations[key] === value ? 'border-[#d35400] scale-110 shadow-md' : 'border-transparent hover:scale-105'}`
+                                        : `px-4 py-2 text-sm font-bold ${
+                                            posProductCustomizations[key] === value 
+                                              ? 'bg-[#1a1a1a] text-white' 
+                                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                          }`
+                                    }`}
+                                    title={value}
+                                  >
+                                    {isColor && isValidHex ? (
+                                      <div 
+                                        className="w-full h-full rounded-lg shadow-inner" 
+                                        style={{ backgroundColor: value }} 
+                                      />
+                                    ) : (
+                                      value
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="p-6 border-t border-black/5 bg-gray-50/50">
+                        <button
+                          onClick={() => {
+                            setPosCart(prev => {
+                              const existing = prev.find(item => 
+                                item.product.id === selectedPosProduct.id && 
+                                JSON.stringify((item as any).customizations) === JSON.stringify(posProductCustomizations)
+                              );
+                              if (existing) {
+                                return prev.map(item => 
+                                  (item.product.id === selectedPosProduct.id && JSON.stringify((item as any).customizations) === JSON.stringify(posProductCustomizations))
+                                    ? { ...item, quantity: item.quantity + 1 } 
+                                    : item
+                                );
+                              }
+                              return [...prev, { product: selectedPosProduct, quantity: 1, customizations: posProductCustomizations }];
+                            });
+                            setSelectedPosProduct(null);
+                          }}
+                          className="w-full py-3 bg-[#1a1a1a] hover:bg-[#d35400] text-white rounded-xl font-bold transition-all shadow-lg shadow-black/5"
+                        >
+                          Add to Order
+                        </button>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
 
@@ -2746,6 +2909,10 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
               setEditProdName={setEditProdName}
               editProdPrice={editProdPrice}
               setEditProdPrice={setEditProdPrice}
+              editProdOriginalPrice={editProdOriginalPrice}
+              setEditProdOriginalPrice={setEditProdOriginalPrice}
+              editProdDiscountPercentage={editProdDiscountPercentage}
+              setEditProdDiscountPercentage={setEditProdDiscountPercentage}
               editProdDescription={editProdDescription}
               setEditProdDescription={setEditProdDescription}
               editProdImage={editProdImage}
@@ -2769,6 +2936,10 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
               setNewProdName={setNewProdName}
               newProdPrice={newProdPrice}
               setNewProdPrice={setNewProdPrice}
+              newProdOriginalPrice={newProdOriginalPrice}
+              setNewProdOriginalPrice={setNewProdOriginalPrice}
+              newProdDiscountPercentage={newProdDiscountPercentage}
+              setNewProdDiscountPercentage={setNewProdDiscountPercentage}
               newProdDescription={newProdDescription}
               setNewProdDescription={setNewProdDescription}
               newProdImage={newProdImage}
@@ -2777,6 +2948,14 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
               setNewProdDept={setNewProdDept}
               newProdStock={newProdStock}
               setNewProdStock={setNewProdStock}
+              newProdColors={newProdColors}
+              setNewProdColors={setNewProdColors}
+              newProdSizes={newProdSizes}
+              setNewProdSizes={setNewProdSizes}
+              editProdColors={editProdColors}
+              setEditProdColors={setEditProdColors}
+              editProdSizes={editProdSizes}
+              setEditProdSizes={setEditProdSizes}
             />
           ) : null}
 

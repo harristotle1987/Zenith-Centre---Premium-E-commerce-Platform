@@ -20,18 +20,34 @@ export const REAL_PRODUCTS: Record<string, any[]> = {
   "Coffee": [
     {
       "name": "Espresso",
-      "price": 3.00,
-      "image": "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?auto=format&fit=crop&q=80&w=800"
+      "price": 2.50,
+      "original_price": 3.00,
+      "discount_percentage": 17,
+      "image": "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "sizes": ["Single", "Double"],
+        "colors": []
+      }
     },
     {
       "name": "Americano",
       "price": 3.50,
-      "image": "https://images.unsplash.com/photo-1551030173-122aabc4489c?auto=format&fit=crop&q=80&w=800"
+      "image": "https://images.unsplash.com/photo-1551030173-122aabc4489c?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "sizes": ["Small", "Medium", "Large"],
+        "colors": []
+      }
     },
     {
       "name": "Latte",
-      "price": 4.50,
-      "image": "https://images.unsplash.com/photo-1570968915860-54d5c301fa9f?auto=format&fit=crop&q=80&w=800"
+      "price": 4.00,
+      "original_price": 4.50,
+      "discount_percentage": 11,
+      "image": "https://images.unsplash.com/photo-1570968915860-54d5c301fa9f?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "sizes": ["Small", "Medium", "Large"],
+        "colors": []
+      }
     },
     {
       "name": "Cappuccino",
@@ -84,7 +100,9 @@ export const REAL_PRODUCTS: Record<string, any[]> = {
     },
     {
       "name": "Blueberry Muffin",
-      "price": 3.75,
+      "price": 3.00,
+      "original_price": 3.75,
+      "discount_percentage": 20,
       "image": "https://images.unsplash.com/photo-1525124568695-c4c6cd3ea847?auto=format&fit=crop&q=80&w=800"
     },
     {
@@ -220,6 +238,9 @@ io.on('connection', (socket) => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`;
       await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT`;
+      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS original_price DECIMAL(10, 2)`;
+      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS discount_percentage INTEGER`;
+      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS options JSONB`;
       await sql`ALTER TABLE products DROP CONSTRAINT IF EXISTS products_name_key`;
       console.log('Payment and guest columns checked/added to orders and transactions tables, settings table initialized, feedback table initialized, product description column checked, unique constraint on product name dropped');
     } catch (e: any) {
@@ -242,8 +263,8 @@ io.on('connection', (socket) => {
 
     jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
       if (err) {
-        console.log('authenticateToken: Token verification failed:', err.message);
-        return res.sendStatus(403);
+        console.log('authenticateToken: Token verification failed:', err.message, 'Token:', token);
+        return res.status(403).json({ error: 'Forbidden', details: err.message });
       }
       req.user = user;
       next();
@@ -538,7 +559,7 @@ io.on('connection', (socket) => {
     try {
       console.time('fetchProducts');
       const products = await sql`
-        SELECT p.id, p.name, p.price, p.image_url as image, p.stock_quantity as stock, d.name as department, p.description
+        SELECT p.id, p.name, p.price, p.original_price as "originalPrice", p.discount_percentage as "discountPercentage", p.image_url as image, p.stock_quantity as stock, d.name as department, p.description, p.options
         FROM products p
         LEFT JOIN departments d ON p.department_id = d.id
       `;
@@ -760,12 +781,23 @@ io.on('connection', (socket) => {
           id BIGSERIAL PRIMARY KEY,
           name VARCHAR(255) NOT NULL,
           price DECIMAL(10, 2) NOT NULL,
+          original_price DECIMAL(10, 2),
+          discount_percentage INTEGER,
           image_url TEXT,
           description TEXT,
           stock_quantity INTEGER DEFAULT 100,
-          department_id BIGINT REFERENCES departments(id) ON DELETE CASCADE
+          department_id BIGINT REFERENCES departments(id) ON DELETE CASCADE,
+          options JSONB
         )
       `;
+
+      try {
+        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS original_price DECIMAL(10, 2)`;
+        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS discount_percentage INTEGER`;
+        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS options JSONB`;
+      } catch (e) {
+        // Columns might already exist
+      }
 
       await sql`
         CREATE TABLE IF NOT EXISTS users (
@@ -840,7 +872,7 @@ io.on('connection', (socket) => {
       `;
 
       try {
-        await sql`ALTER TABLE order_items ADD COLUMN customizations JSONB`;
+        await sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS customizations JSONB`;
       } catch (e) {
         // Column might already exist, ignore
       }
@@ -951,8 +983,17 @@ io.on('connection', (socket) => {
           const products = REAL_PRODUCTS[deptName];
           for (const product of products) {
             await sql`
-              INSERT INTO products (name, price, image_url, stock_quantity, department_id)
-              VALUES (${product.name}, ${product.price}, ${product.image}, 100, ${deptId})
+              INSERT INTO products (name, price, original_price, discount_percentage, image_url, stock_quantity, department_id, options)
+              VALUES (
+                ${product.name}, 
+                ${product.price}, 
+                ${product.original_price || null}, 
+                ${product.discount_percentage || null}, 
+                ${product.image}, 
+                100, 
+                ${deptId}, 
+                ${product.options ? JSON.stringify(product.options) : null}
+              )
               ON CONFLICT (name) DO NOTHING
             `;
           }
@@ -1750,7 +1791,7 @@ io.on('connection', (socket) => {
 
   app.post('/api/products', authenticateToken, authorizeRole(['super_admin', 'staff', 'secretary', 'manager', 'counter_staff']), async (req: any, res) => {
     try {
-      const { name, price, image_url, department_name, stock_quantity, description } = req.body;
+      const { name, price, original_price, discount_percentage, image_url, department_name, stock_quantity, description, options } = req.body;
       console.log('Adding product:', name, 'to department:', department_name);
       if (!name || !price || !department_name) {
         return res.status(400).json({ error: 'Name, price, and department are required' });
@@ -1767,8 +1808,8 @@ io.on('connection', (socket) => {
       const finalStock = stock_quantity !== undefined ? stock_quantity : 100;
       
       const result = await sql`
-        INSERT INTO products (name, price, image_url, stock_quantity, department_id, description) 
-        VALUES (${name}, ${price}, ${image_url}, ${finalStock}, ${department_id}, ${description || null}) 
+        INSERT INTO products (name, price, original_price, discount_percentage, image_url, stock_quantity, department_id, description, options) 
+        VALUES (${name}, ${price}, ${original_price || null}, ${discount_percentage || null}, ${image_url}, ${finalStock}, ${department_id}, ${description || null}, ${options ? JSON.stringify(options) : null}) 
         RETURNING *
       `;
       const io = req.app.get('io');
@@ -1802,7 +1843,7 @@ io.on('connection', (socket) => {
   app.put('/api/products/:id', authenticateToken, authorizeRole(['super_admin', 'staff', 'secretary', 'manager', 'counter_staff']), async (req: any, res) => {
     try {
       const { id } = req.params;
-      const { name, price, image_url, department_name, stock_quantity, description } = req.body;
+      const { name, price, original_price, discount_percentage, image_url, department_name, stock_quantity, description, options } = req.body;
       
       if (!name || !price || !department_name) {
         return res.status(400).json({ error: 'Name, price, and department are required' });
@@ -1819,7 +1860,7 @@ io.on('connection', (socket) => {
       
       const result = await sql`
         UPDATE products 
-        SET name = ${name}, price = ${price}, image_url = ${image_url}, stock_quantity = ${finalStock}, department_id = ${department_id}, description = ${description || null}
+        SET name = ${name}, price = ${price}, original_price = ${original_price || null}, discount_percentage = ${discount_percentage || null}, image_url = ${image_url}, stock_quantity = ${finalStock}, department_id = ${department_id}, description = ${description || null}, options = ${options ? JSON.stringify(options) : null}
         WHERE id = ${id} 
         RETURNING *
       `;

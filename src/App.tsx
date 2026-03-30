@@ -190,7 +190,7 @@ export default function App() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      if (token) {
+      if (token && token !== 'undefined' && token !== 'null') {
         try {
           const res = await fetch(getApiUrl('/api/auth/me'), {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -205,6 +205,8 @@ export default function App() {
           console.error('Auth check failed', err);
           handleLogout();
         }
+      } else if (token) {
+        handleLogout();
       }
     };
     checkAuth();
@@ -465,6 +467,26 @@ export default function App() {
 
         {activeDepartment === 'All' && !searchQuery ? (
           <div className="py-16 bg-[#fdfbf7] space-y-20">
+            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center justify-between mb-8 border-b border-black/5 pb-4">
+                <h2 className="text-2xl font-serif font-bold text-[#1a1a1a] uppercase tracking-tight">Featured Products</h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                {products
+                  .sort(() => 0.5 - Math.random())
+                  .slice(0, 6)
+                  .map(product => (
+                    <ProductCard 
+                      key={product.id} 
+                      product={product} 
+                      onAddToCart={() => addToCart(product)}
+                      onViewDetails={(p) => setSelectedProduct(p)}
+                      currency={currency}
+                    />
+                  ))}
+              </div>
+            </section>
+
             {departments.filter(d => d !== 'All').map(dept => {
               const deptProducts = products.filter(p => p.department === dept).slice(0, 3);
               if (deptProducts.length === 0) return null;
