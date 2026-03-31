@@ -16,9 +16,10 @@ interface AdminDashboardProps {
   currency: Currency;
   onUpdateUser?: (user: any) => void;
   onCurrencyChange: (currency: Currency) => void;
+  onLogout?: () => void;
 }
 
-export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange }: AdminDashboardProps) {
+export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange, onLogout }: AdminDashboardProps) {
   const baseUrl = getApiUrl('');
   const [activeTab, setActiveTab] = useState<'pos' | 'products' | 'departments' | 'accounts' | 'staff' | 'transactions' | 'activities' | 'pending_orders' | 'settings'>(() => {
     return (localStorage.getItem('adminActiveTab') as any) || 'pos';
@@ -92,7 +93,33 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
   const [posOrderType, setPosOrderType] = useState<'in-shop' | 'take-away' | 'delivery'>('in-shop');
   const [selectedPosProduct, setSelectedPosProduct] = useState<Product | null>(null);
   const [posProductCustomizations, setPosProductCustomizations] = useState<any>({});
+  const [posShowOptionErrors, setPosShowOptionErrors] = useState(false);
+
+  const getMissingPosOptions = () => {
+    if (!selectedPosProduct) return [];
+    const missing: string[] = [];
+    
+    if (selectedPosProduct.options) {
+      Object.keys(selectedPosProduct.options).forEach(key => {
+        if (!posProductCustomizations[key]) {
+          missing.push(key);
+        }
+      });
+    } else if (selectedPosProduct.department === 'Coffee' || selectedPosProduct.department === 'Tea & Other') {
+      if (!posProductCustomizations.size) missing.push('size');
+      if (!posProductCustomizations.milk) missing.push('milk');
+    }
+    
+    return missing;
+  };
   const [searchTerm, setSearchTerm] = useState('');
+  const [roles, setRoles] = useState<any[]>([]);
+  const [showAddRoleModal, setShowAddRoleModal] = useState(false);
+  const [newRoleName, setNewRoleName] = useState('');
+  const [newRoleDescription, setNewRoleDescription] = useState('');
+  const [reportData, setReportData] = useState<any>(null);
+  const [reportPeriod, setReportPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'quarterly' | 'annually'>('daily');
+  const [loadingReport, setLoadingReport] = useState(false);
 
   // Accounts State
   const [accountsData, setAccountsData] = useState<{ totalInflow: number, recentOrders: any[] }>({ totalInflow: 0, recentOrders: [] });
@@ -138,8 +165,10 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
   const [newProdImage, setNewProdImage] = useState('');
   const [newProdDept, setNewProdDept] = useState('');
   const [newProdStock, setNewProdStock] = useState('100');
-  const [newProdColors, setNewProdColors] = useState<string[]>([]);
-  const [newProdSizes, setNewProdSizes] = useState<string[]>([]);
+  const [newProdOptions, setNewProdOptions] = useState<Record<string, string[]>>({});
+  const [newProdPriceModifiers, setNewProdPriceModifiers] = useState<Record<string, Record<string, number>>>({});
+  const [newProdGallery, setNewProdGallery] = useState<string[]>([]);
+  const [newProdOptionImages, setNewProdOptionImages] = useState<Record<string, Record<string, string>>>({});
   const [uploadingImage, setUploadingImage] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -166,6 +195,36 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
   const activityCount = useMemo(() => allActivities.length, [allActivities]);
   
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+
+  const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+    const token = localStorage.getItem('token');
+    const headers: any = { ...options.headers };
+    
+    if (token && !headers['Authorization']) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    if (options.body && typeof options.body === 'string' && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    try {
+      const res = await fetch(url, { ...options, headers });
+      
+      if (res.status === 401 || res.status === 403) {
+        console.error('Session expired or unauthorized');
+        toast.error('Session expired. Please login again.');
+        if (onLogout) onLogout();
+        throw new Error('Unauthorized');
+      }
+      
+      return res;
+    } catch (err) {
+      console.error(`Fetch error for ${url}:`, err);
+      throw err;
+    }
+  };
+
   const [editProdName, setEditProdName] = useState('');
   const [editProdPrice, setEditProdPrice] = useState('');
   const [editProdOriginalPrice, setEditProdOriginalPrice] = useState('');
@@ -174,46 +233,85 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
   const [editProdImage, setEditProdImage] = useState('');
   const [editProdDept, setEditProdDept] = useState('');
   const [editProdStock, setEditProdStock] = useState('');
-  const [editProdColors, setEditProdColors] = useState<string[]>([]);
-  const [editProdSizes, setEditProdSizes] = useState<string[]>([]);
+  const [editProdOptions, setEditProdOptions] = useState<Record<string, string[]>>({});
+  const [editProdPriceModifiers, setEditProdPriceModifiers] = useState<Record<string, Record<string, number>>>({});
+  const [editProdGallery, setEditProdGallery] = useState<string[]>([]);
+  const [editProdOptionImages, setEditProdOptionImages] = useState<Record<string, Record<string, string>>>({});
+  const [uploadingNewImage, setUploadingNewImage] = useState(false);
   const [uploadingEditImage, setUploadingEditImage] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<any | null>(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleNewImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    console.log('Files to upload:', files);
 
-    setUploadingImage(true);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setNewProdImage(reader.result as string);
-      setUploadingImage(false);
-    };
-    reader.readAsDataURL(file);
+    setUploadingNewImage(true);
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append('images', files[i]);
+    }
+
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+      const data = await response.json();
+      console.log('Upload response:', data);
+      if (data.urls) {
+        setNewProdGallery(prev => [...prev, ...data.urls]);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+    } finally {
+      setUploadingNewImage(false);
+    }
   };
+
+  const handleEditImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    console.log('Files to upload (edit):', files);
+
+    setUploadingEditImage(true);
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append('images', files[i]);
+    }
+
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+      const data = await response.json();
+      console.log('Upload response (edit):', data);
+      if (data.urls) {
+        setEditProdGallery(prev => [...prev, ...data.urls]);
+      }
+    } catch (error) {
+      console.error('Upload error (edit):', error);
+    } finally {
+      setUploadingEditImage(false);
+    }
+  };
+
 
   const fetchData = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const fetchWithLogging = async (url: string, options?: RequestInit) => {
-        try {
-          const res = await fetch(url, options);
-          if (!res.ok) {
-            const text = await res.text().catch(() => 'No body');
-            console.error(`Fetch error for ${url}: ${res.status} ${res.statusText}`, text);
-          }
-          return res;
-        } catch (err) {
-          console.error(`Network error for ${url}:`, err);
-          throw err;
-        }
-      };
-
       const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}` };
       const [deptRes, prodRes] = await Promise.all([
-        fetchWithLogging(getApiUrl('/api/departments')),
-        fetchWithLogging(getApiUrl('/api/products'))
+        fetchWithAuth(getApiUrl('/api/departments')),
+        fetchWithAuth(getApiUrl('/api/products'))
       ]);
       
       if (!deptRes.ok || !prodRes.ok) throw new Error('Failed to fetch base data');
@@ -225,15 +323,15 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
 
       if (user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'secretary' || user?.role === 'staff' || user?.role === 'manager' || user?.role === 'counter_staff') {
         const [accRes, transRes] = await Promise.all([
-          fetchWithLogging(getApiUrl('/api/admin/accounts'), { headers }),
-          fetchWithLogging(getApiUrl('/api/admin/transactions'), { headers })
+          fetchWithAuth(getApiUrl('/api/admin/accounts'), { headers }),
+          fetchWithAuth(getApiUrl('/api/admin/transactions'), { headers })
         ]);
         if (accRes.ok) setAccountsData(await accRes.json());
         if (transRes.ok) setTransactions(await transRes.json());
       }
 
       if (user?.role === 'super_admin' || user?.role === 'manager') {
-        const settingsRes = await fetchWithLogging(getApiUrl('/api/admin/settings'), { headers });
+        const settingsRes = await fetchWithAuth(getApiUrl('/api/admin/settings'), { headers });
         if (settingsRes.ok) {
           const settings = await settingsRes.json();
           if (settings.minStockThreshold) setMinStockThreshold(Number(settings.minStockThreshold));
@@ -246,21 +344,23 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
       }
 
       if (user?.role === 'super_admin' || user?.role === 'manager') {
-        const [staffRes, activitiesRes, usersRes] = await Promise.all([
-          fetchWithLogging(getApiUrl('/api/admin/staff'), { headers }),
-          fetchWithLogging(getApiUrl('/api/admin/activities'), { headers }),
-          fetchWithLogging(getApiUrl('/api/admin/users'), { headers })
+        const [staffRes, activitiesRes, usersRes, rolesRes] = await Promise.all([
+          fetchWithAuth(getApiUrl('/api/admin/staff'), { headers }),
+          fetchWithAuth(getApiUrl('/api/admin/activities'), { headers }),
+          fetchWithAuth(getApiUrl('/api/admin/users'), { headers }),
+          fetchWithAuth(getApiUrl('/api/admin/roles'), { headers })
         ]);
         if (staffRes.ok) setStaffList(await staffRes.json());
         if (activitiesRes.ok) setAllActivities(await activitiesRes.json());
         if (usersRes.ok) setAllUsers(await usersRes.json());
+        if (rolesRes.ok) setRoles(await rolesRes.json());
       }
 
       // Fetch pending orders for all allowed roles
       if (user?.role === 'super_admin' || user?.role === 'accountant' || user?.role === 'secretary' || user?.role === 'staff' || user?.role === 'manager' || user?.role === 'counter_staff') {
         const [ordersRes, rateRes] = await Promise.all([
-          fetchWithLogging(getApiUrl('/api/admin/orders'), { headers }),
-          fetchWithLogging(getApiUrl('/api/exchange-rate'))
+          fetchWithAuth(getApiUrl('/api/admin/orders'), { headers }),
+          fetchWithAuth(getApiUrl('/api/exchange-rate'))
         ]);
         if (ordersRes.ok) setPendingOrders(await ordersRes.json());
         if (rateRes.ok) {
@@ -485,10 +585,10 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
           image_url: newProdImage || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=800',
           department_name: newProdDept,
           stock_quantity: parseInt(newProdStock, 10) || 0,
-          options: {
-            colors: newProdColors.length > 0 ? newProdColors : undefined,
-            sizes: newProdSizes.length > 0 ? newProdSizes : undefined
-          }
+          options: Object.keys(newProdOptions).length > 0 ? newProdOptions : undefined,
+          optionPriceModifiers: Object.keys(newProdPriceModifiers).length > 0 ? newProdPriceModifiers : undefined,
+          gallery: newProdGallery.length > 0 ? newProdGallery : undefined,
+          optionImages: Object.keys(newProdOptionImages).length > 0 ? newProdOptionImages : undefined
         })
       });
       if (res.ok) {
@@ -498,8 +598,10 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
         setNewProdImage('');
         setNewProdDept('');
         setNewProdStock('100');
-        setNewProdColors([]);
-        setNewProdSizes([]);
+        setNewProdOptions({});
+        setNewProdPriceModifiers({});
+        setNewProdGallery([]);
+        setNewProdOptionImages({});
         showMessage('Product added!');
       } else {
         const data = await res.json();
@@ -513,31 +615,20 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
     }
   };
 
-  const handleEditImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploadingEditImage(true);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setEditProdImage(reader.result as string);
-      setUploadingEditImage(false);
-    };
-    reader.readAsDataURL(file);
-  };
-
   const startEditingProduct = (prod: Product) => {
     setEditingProductId(prod.id);
-    setEditProdName(prod.name);
-    setEditProdPrice(prod.price.toString());
+    setEditProdName(prod.name || '');
+    setEditProdPrice(prod.price?.toString() || '');
     setEditProdOriginalPrice(prod.originalPrice?.toString() || '');
     setEditProdDiscountPercentage(prod.discountPercentage?.toString() || '');
     setEditProdDescription(prod.description || '');
-    setEditProdImage(prod.image);
-    setEditProdDept(prod.department);
+    setEditProdImage(prod.image || '');
+    setEditProdDept(prod.department || '');
     setEditProdStock(prod.stock?.toString() || '0');
-    setEditProdColors(prod.options?.colors || []);
-    setEditProdSizes(prod.options?.sizes || []);
+    setEditProdOptions(prod.options || {});
+    setEditProdPriceModifiers(prod.optionPriceModifiers || {});
+    setEditProdGallery(prod.gallery || []);
+    setEditProdOptionImages(prod.optionImages || {});
   };
 
   const updateProduct = async (e: React.FormEvent) => {
@@ -561,17 +652,19 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
           image_url: editProdImage || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=800',
           department_name: editProdDept,
           stock_quantity: parseInt(editProdStock, 10) || 0,
-          options: {
-            colors: editProdColors.length > 0 ? editProdColors : undefined,
-            sizes: editProdSizes.length > 0 ? editProdSizes : undefined
-          }
+          options: Object.keys(editProdOptions).length > 0 ? editProdOptions : undefined,
+          optionPriceModifiers: Object.keys(editProdPriceModifiers).length > 0 ? editProdPriceModifiers : undefined,
+          gallery: editProdGallery.length > 0 ? editProdGallery : undefined,
+          optionImages: Object.keys(editProdOptionImages).length > 0 ? editProdOptionImages : undefined
         })
       });
       if (res.ok) {
         showMessage('Product updated successfully.');
         setEditingProductId(null);
-        setEditProdColors([]);
-        setEditProdSizes([]);
+        setEditProdOptions({});
+        setEditProdPriceModifiers({});
+        setEditProdGallery([]);
+        setEditProdOptionImages({});
       } else {
         const data = await res.json();
         showMessage(data.error || 'Failed to update product.', 'error');
@@ -947,6 +1040,55 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
     printWindow.document.close();
   };
 
+  const fetchReport = async (period: string) => {
+    setLoadingReport(true);
+    try {
+      const res = await fetchWithAuth(getApiUrl(`/api/admin/reports?period=${period}`));
+      if (res.ok) {
+        setReportData(await res.json());
+      } else {
+        showMessage('Failed to fetch report', 'error');
+      }
+    } catch (error) {
+      showMessage('Error fetching report', 'error');
+    } finally {
+      setLoadingReport(false);
+    }
+  };
+
+  const addRole = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRoleName) return;
+    const loadingToast = toast.loading('Creating role...');
+    try {
+      const res = await fetchWithAuth(getApiUrl('/api/admin/roles'), {
+        method: 'POST',
+        body: JSON.stringify({ name: newRoleName, description: newRoleDescription })
+      });
+      if (res.ok) {
+        const newRole = await res.json();
+        setRoles(prev => [...prev, newRole]);
+        setNewRoleName('');
+        setNewRoleDescription('');
+        setShowAddRoleModal(false);
+        showMessage('Role created successfully!');
+      } else {
+        const data = await res.json();
+        showMessage(data.error || 'Failed to create role', 'error');
+      }
+    } catch (error) {
+      showMessage('Error creating role', 'error');
+    } finally {
+      toast.dismiss(loadingToast);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'accounts') {
+      fetchReport(reportPeriod);
+    }
+  }, [activeTab, reportPeriod]);
+
   const addStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -954,12 +1096,8 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
       const generatedStaffId = newStaffId || `STF-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
       const loadingToast = toast.loading('Creating staff account...');
       try {
-        const res = await fetch(getApiUrl('/api/admin/staff'), {
+        const res = await fetchWithAuth(getApiUrl('/api/admin/staff'), {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
           body: JSON.stringify({
             email: newStaffEmail,
             password: newStaffPassword,
@@ -1010,8 +1148,8 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
 
   const handleEditStaff = (staff: any) => {
     setEditingStaffId(staff.id);
-    setEditStaffName(staff.name);
-    setEditStaffRole(staff.role);
+    setEditStaffName(staff.name || '');
+    setEditStaffRole(staff.role || '');
     setEditStaffContact(staff.contact_info || '');
     setEditStaffIdVal(staff.staff_id || '');
     setEditStaffImage(staff.profile_image_url || '');
@@ -1243,6 +1381,59 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
           </motion.div>
         </div>
       )}
+
+      {/* Add Role Modal */}
+      <AnimatePresence>
+        {showAddRoleModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAddRoleModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-6 border-b border-black/5 flex items-center justify-between">
+                <h2 className="text-xl font-serif font-bold">Create New Staff Role</h2>
+                <button onClick={() => setShowAddRoleModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+              <form onSubmit={addRole} className="p-6 space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Role Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={newRoleName}
+                    onChange={(e) => setNewRoleName(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#d35400]"
+                    placeholder="e.g. Inventory Manager"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Description</label>
+                  <textarea
+                    value={newRoleDescription}
+                    onChange={(e) => setNewRoleDescription(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#d35400] h-24 resize-none"
+                    placeholder="Describe the responsibilities of this role..."
+                  />
+                </div>
+                <button type="submit" className="w-full bg-[#1a1a1a] hover:bg-[#d35400] text-white py-3 rounded-xl font-bold transition-all shadow-lg shadow-black/5">
+                  Create Role
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Confirmation Modal */}
       {showConfirm && confirmConfig && (
@@ -1540,7 +1731,7 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                             <input
                               type="number"
                               value={editProdStock}
-                              onChange={(e) => setEditStockValue(e.target.value)}
+                              onChange={(e) => setEditProdStock(e.target.value)}
                               className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#d35400]"
                               placeholder="Stock"
                             />
@@ -2707,12 +2898,8 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
 
                           try {
                             const total = posCart.reduce((sum, item) => sum + (Number(item.product.price) * item.quantity), 0) * 1.05;
-                            const res = await fetch(getApiUrl('/api/orders'), {
+                            const res = await fetchWithAuth(getApiUrl('/api/orders'), {
                               method: 'POST',
-                              headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${localStorage.getItem('token')}`
-                              },
                               signal: controller.signal,
                               body: JSON.stringify({
                                 items: posCart.map(item => ({ 
@@ -2753,8 +2940,23 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                               toast.success('Sale processed successfully!');
                               fetchData();
                             } else {
-                              const err = await res.json();
-                              toast.error(err.error || 'Failed to process order');
+                              const contentType = res.headers.get('content-type');
+                              let errorMessage = 'Failed to process order';
+                              
+                              if (contentType && contentType.includes('application/json')) {
+                                const err = await res.json();
+                                errorMessage = err.error || errorMessage;
+                              } else {
+                                const text = await res.text();
+                                console.error('Non-JSON error response:', text);
+                              }
+
+                              if (res.status === 401 || res.status === 403) {
+                                toast.error('Session expired. Please login again.');
+                                if (onLogout) onLogout();
+                              } else {
+                                toast.error(errorMessage);
+                              }
                             }
                           } catch (error: any) {
                             console.error('Checkout error:', error);
@@ -2825,7 +3027,12 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                       <div className="p-6 space-y-6">
                         {Object.entries(selectedPosProduct.options || {}).map(([key, values]) => (
                           <div key={key}>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">{key}</p>
+                            <div className="flex items-center justify-between mb-3">
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{key}</p>
+                              {posShowOptionErrors && !posProductCustomizations[key] && (
+                                <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest animate-pulse">Required</span>
+                              )}
+                            </div>
                             <div className="flex flex-wrap gap-2">
                               {Array.isArray(values) && values.map(value => {
                                 const isColor = key.toLowerCase() === 'colors' || key.toLowerCase() === 'color';
@@ -2834,14 +3041,17 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                                 return (
                                   <button
                                     key={value}
-                                    onClick={() => setPosProductCustomizations((prev: any) => ({ ...prev, [key]: value }))}
+                                    onClick={() => {
+                                      setPosProductCustomizations((prev: any) => ({ ...prev, [key]: value }));
+                                      setPosShowOptionErrors(false);
+                                    }}
                                     className={`rounded-xl transition-all flex items-center justify-center gap-2 ${
                                       isColor && isValidHex
-                                        ? `w-10 h-10 border-2 ${posProductCustomizations[key] === value ? 'border-[#d35400] scale-110 shadow-md' : 'border-transparent hover:scale-105'}`
+                                        ? `w-10 h-10 border-2 ${posProductCustomizations[key] === value ? 'border-[#d35400] scale-110 shadow-md' : (posShowOptionErrors && !posProductCustomizations[key] ? 'border-red-200' : 'border-transparent hover:scale-105')}`
                                         : `px-4 py-2 text-sm font-bold ${
                                             posProductCustomizations[key] === value 
                                               ? 'bg-[#1a1a1a] text-white' 
-                                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                              : (posShowOptionErrors && !posProductCustomizations[key] ? 'bg-red-50 text-red-400 border border-red-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')
                                           }`
                                     }`}
                                     title={value}
@@ -2863,8 +3073,20 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                       </div>
 
                       <div className="p-6 border-t border-black/5 bg-gray-50/50">
+                        {posShowOptionErrors && (
+                          <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2 text-red-600 text-[10px] font-bold uppercase tracking-widest animate-bounce">
+                            <X size={14} />
+                            Please select all required options
+                          </div>
+                        )}
                         <button
                           onClick={() => {
+                            const missing = getMissingPosOptions();
+                            if (missing.length > 0) {
+                              setPosShowOptionErrors(true);
+                              return;
+                            }
+                            
                             setPosCart(prev => {
                               const existing = prev.find(item => 
                                 item.product.id === selectedPosProduct.id && 
@@ -2880,10 +3102,13 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                               return [...prev, { product: selectedPosProduct, quantity: 1, customizations: posProductCustomizations }];
                             });
                             setSelectedPosProduct(null);
+                            setPosShowOptionErrors(false);
                           }}
-                          className="w-full py-3 bg-[#1a1a1a] hover:bg-[#d35400] text-white rounded-xl font-bold transition-all shadow-lg shadow-black/5"
+                          className={`w-full py-3 rounded-xl font-bold transition-all shadow-lg shadow-black/5 ${
+                            posShowOptionErrors ? 'bg-red-500 text-white' : 'bg-[#1a1a1a] hover:bg-[#d35400] text-white'
+                          }`}
                         >
-                          Add to Order
+                          {posShowOptionErrors ? 'Select Options' : 'Add to Order'}
                         </button>
                       </div>
                     </motion.div>
@@ -2925,8 +3150,8 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
               editingStockId={editingStockId}
               setEditingStockId={setEditingStockId}
               editStockValue={editStockValue}
-              uploadingImage={uploadingImage}
-              handleImageUpload={handleImageUpload}
+              uploadingNewImage={uploadingNewImage}
+              handleNewImageUpload={handleNewImageUpload}
               uploadingEditImage={uploadingEditImage}
               handleEditImageUpload={handleEditImageUpload}
               currency={currency}
@@ -2948,14 +3173,22 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
               setNewProdDept={setNewProdDept}
               newProdStock={newProdStock}
               setNewProdStock={setNewProdStock}
-              newProdColors={newProdColors}
-              setNewProdColors={setNewProdColors}
-              newProdSizes={newProdSizes}
-              setNewProdSizes={setNewProdSizes}
-              editProdColors={editProdColors}
-              setEditProdColors={setEditProdColors}
-              editProdSizes={editProdSizes}
-              setEditProdSizes={setEditProdSizes}
+              newProdOptions={newProdOptions}
+              setNewProdOptions={setNewProdOptions}
+              newProdPriceModifiers={newProdPriceModifiers}
+              setNewProdPriceModifiers={setNewProdPriceModifiers}
+              newProdGallery={newProdGallery}
+              setNewProdGallery={setNewProdGallery}
+              newProdOptionImages={newProdOptionImages}
+              setNewProdOptionImages={setNewProdOptionImages}
+              editProdOptions={editProdOptions}
+              setEditProdOptions={setEditProdOptions}
+              editProdPriceModifiers={editProdPriceModifiers}
+              setEditProdPriceModifiers={setEditProdPriceModifiers}
+              editProdGallery={editProdGallery}
+              setEditProdGallery={setEditProdGallery}
+              editProdOptionImages={editProdOptionImages}
+              setEditProdOptionImages={setEditProdOptionImages}
             />
           ) : null}
 
@@ -3157,28 +3390,115 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                     <div className="bg-emerald-100 p-3 rounded-xl text-emerald-600">
                       <DollarSign size={24} />
                     </div>
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Total Inflow</p>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                      {reportPeriod === 'daily' ? 'Today\'s' : 
+                       reportPeriod === 'weekly' ? 'Weekly' : 
+                       reportPeriod === 'monthly' ? 'Monthly' : 
+                       reportPeriod === 'quarterly' ? 'Quarterly' : 'Annual'} Inflow
+                    </p>
                   </div>
-                  <h3 className="text-3xl font-serif font-bold text-[#1a1a1a]">{formatPrice(Number(accountsData.totalInflow), currency, exchangeRate)}</h3>
+                  <h3 className="text-3xl font-serif font-bold text-[#1a1a1a]">
+                    {formatPrice(Number(reportData?.total_sales || 0), currency, exchangeRate)}
+                  </h3>
                 </div>
                 <div className="bg-white p-6 rounded-2xl border border-black/5 shadow-sm">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="bg-blue-100 p-3 rounded-xl text-blue-600">
                       <ShoppingBag size={24} />
                     </div>
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Total Orders</p>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                      {reportPeriod === 'daily' ? 'Today\'s' : 
+                       reportPeriod === 'weekly' ? 'Weekly' : 
+                       reportPeriod === 'monthly' ? 'Monthly' : 
+                       reportPeriod === 'quarterly' ? 'Quarterly' : 'Annual'} Orders
+                    </p>
                   </div>
-                  <h3 className="text-3xl font-serif font-bold text-[#1a1a1a]">{accountsData.recentOrders.length}</h3>
+                  <h3 className="text-3xl font-serif font-bold text-[#1a1a1a]">
+                    {reportData?.total_orders || 0}
+                  </h3>
                 </div>
                 <div className="bg-white p-6 rounded-2xl border border-black/5 shadow-sm">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="bg-amber-100 p-3 rounded-xl text-amber-600">
-                      <Calendar size={24} />
+                      <TrendingUp size={24} />
                     </div>
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Last 30 Days</p>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Avg Order Value</p>
                   </div>
-                  <h3 className="text-3xl font-serif font-bold text-[#1a1a1a]">{formatPrice(Number(accountsData.totalInflow) * 0.85, currency, exchangeRate)}</h3>
+                  <h3 className="text-3xl font-serif font-bold text-[#1a1a1a]">
+                    {formatPrice(Number(reportData?.average_order_value || 0), currency, exchangeRate)}
+                  </h3>
                 </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-2xl border border-black/5 shadow-sm">
+                <div className="flex items-center justify-between mb-6 border-b border-black/5 pb-4">
+                  <h2 className="text-xl font-serif font-bold">Financial Reports</h2>
+                  <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-xl border border-black/5">
+                    {(['daily', 'weekly', 'monthly', 'quarterly', 'annually'] as const).map((period) => (
+                      <button
+                        key={period}
+                        onClick={() => setReportPeriod(period)}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
+                          reportPeriod === period ? 'bg-[#1a1a1a] text-white shadow-md' : 'text-gray-400 hover:text-gray-600'
+                        }`}
+                      >
+                        {period}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {loadingReport ? (
+                  <div className="h-64 flex items-center justify-center">
+                    <div className="w-8 h-8 border-4 border-[#d35400] border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                ) : reportData ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                        <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Sales</p>
+                        <p className="text-xl font-bold text-emerald-700">{formatPrice(Number(reportData.total_sales), currency, exchangeRate)}</p>
+                      </div>
+                      <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Orders</p>
+                        <p className="text-xl font-bold text-blue-700">{reportData.total_orders}</p>
+                      </div>
+                      <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
+                        <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">Avg Order</p>
+                        <p className="text-xl font-bold text-amber-700">{formatPrice(Number(reportData.average_order_value), currency, exchangeRate)}</p>
+                      </div>
+                    </div>
+
+                    {reportData.salesOverTime && reportData.salesOverTime.length > 0 && (
+                      <div className="mt-8">
+                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Sales Trend</h3>
+                        <div className="h-48 flex items-end gap-1">
+                          {reportData.salesOverTime.map((item: any, idx: number) => {
+                            const maxSales = Math.max(...reportData.salesOverTime.map((s: any) => Number(s.sales)));
+                            const height = maxSales > 0 ? (Number(item.sales) / maxSales) * 100 : 0;
+                            return (
+                              <div key={idx} className="flex-1 group relative">
+                                <div 
+                                  className="bg-[#d35400]/20 group-hover:bg-[#d35400] transition-all rounded-t-sm"
+                                  style={{ height: `${height}%` }}
+                                ></div>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-[#1a1a1a] text-white text-[8px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                                  {formatPrice(Number(item.sales), currency, exchangeRate)}
+                                  <br />
+                                  {new Date(item.date).toLocaleDateString()}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="h-64 flex items-center justify-center text-gray-400 italic">
+                    No report data available for this period.
+                  </div>
+                )}
               </div>
 
               <div className="bg-white p-6 rounded-2xl border border-black/5 shadow-sm">
@@ -3239,7 +3559,15 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
               className="grid grid-cols-1 lg:grid-cols-12 gap-8"
             >
               <div className="lg:col-span-4 bg-white p-6 rounded-2xl border border-black/5 shadow-sm h-fit">
-                <h2 className="text-xl font-serif font-bold mb-6 border-b border-black/5 pb-4">Add Staff</h2>
+                <div className="flex items-center justify-between mb-6 border-b border-black/5 pb-4">
+                  <h2 className="text-xl font-serif font-bold">Add Staff</h2>
+                  <button 
+                    onClick={() => setShowAddRoleModal(true)}
+                    className="text-[10px] font-bold text-[#d35400] hover:text-[#e67e22] uppercase tracking-widest flex items-center gap-1"
+                  >
+                    <Plus size={12} /> Add Role
+                  </button>
+                </div>
                 <form onSubmit={addStaff} className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Full Name</label>
@@ -3322,18 +3650,43 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange 
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Role</label>
-                    <select
-                      value={newStaffRole}
-                      onChange={(e) => setNewStaffRole(e.target.value)}
-                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#d35400]"
-                    >
-                      <option value="accountant">Accountant</option>
-                      <option value="secretary">Secretary</option>
-                      <option value="manager">Manager</option>
-                      <option value="counter_staff">Counter Staff</option>
-                      <option value="staff">General Staff</option>
-                      <option value="super_admin">Super Admin</option>
-                    </select>
+                    <div className="space-y-2">
+                      <select
+                        value={newStaffRole === 'other' ? 'other' : newStaffRole}
+                        onChange={(e) => {
+                          if (e.target.value === 'other') {
+                            setNewStaffRole('other');
+                          } else {
+                            setNewStaffRole(e.target.value);
+                          }
+                        }}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#d35400]"
+                      >
+                        {roles.map((role: any) => (
+                          <option key={role.id} value={role.name}>
+                            {role.name.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                          </option>
+                        ))}
+                        <option value="accountant">Accountant</option>
+                        <option value="secretary">Secretary</option>
+                        <option value="manager">Manager</option>
+                        <option value="counter_staff">Counter Staff</option>
+                        <option value="staff">General Staff</option>
+                        <option value="super_admin">Super Admin</option>
+                        <option value="other">Other (Type manually)</option>
+                      </select>
+                      
+                      {newStaffRole === 'other' && (
+                        <input
+                          type="text"
+                          required
+                          onChange={(e) => setNewStaffRole(e.target.value)}
+                          className="w-full bg-gray-50 border border-[#d35400] rounded-xl px-4 py-2.5 text-sm focus:outline-none"
+                          placeholder="Enter custom role name"
+                          autoFocus
+                        />
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-1 relative">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Assign Departments</label>

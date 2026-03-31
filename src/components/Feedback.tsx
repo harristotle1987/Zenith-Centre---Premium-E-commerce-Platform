@@ -33,14 +33,26 @@ export function Feedback({ productId, user }: FeedbackProps) {
   }, [productId]);
 
   const fetchFeedback = async () => {
+    if (!productId || isNaN(Number(productId))) {
+      console.warn('Invalid or missing productId for feedback fetch:', productId);
+      setIsLoading(false);
+      return;
+    }
+    
+    setIsLoading(true);
     try {
-      const res = await fetch(getApiUrl(`/api/feedback/${productId}`));
+      const url = getApiUrl(`/api/feedback/${productId}`);
+      console.log('Fetching feedback from:', url);
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setFeedbacks(data);
+      } else {
+        const errorText = await res.text().catch(() => 'No error body');
+        console.error(`Feedback fetch failed with status ${res.status}:`, errorText);
       }
     } catch (err) {
-      console.error('Failed to fetch feedback:', err);
+      console.error('Failed to fetch feedback (Network Error):', err);
     } finally {
       setIsLoading(false);
     }

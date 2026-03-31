@@ -9,306 +9,175 @@ export interface Product {
   stock?: number;
   description?: string;
   options?: {
-    sizes?: string[];
-    colors?: string[];
-    [key: string]: any;
+    [key: string]: string[];
+  };
+  optionPriceModifiers?: {
+    [optionKey: string]: {
+      [optionValue: string]: number;
+    };
+  };
+  gallery?: string[];
+  optionImages?: {
+    [optionKey: string]: {
+      [optionValue: string]: string;
+    };
   };
 }
 
 export const DEPARTMENTS = [
   "All",
-  "Organic Produce",
-  "Dairy & Artisanal Cheese",
-  "Bakery & Patisserie",
-  "Prime Meats",
-  "Fine Wines",
-  "Pantry Essentials"
+  "Signature Coffee",
+  "Artisanal Tea",
+  "Gourmet Pastries"
 ];
 
 export const PRODUCTS: Product[] = [
-  // Organic Produce
+  // Signature Coffee
   {
     id: "1",
-    name: "Organic Hass Avocado",
-    price: 2.00,
-    originalPrice: 2.50,
-    discountPercentage: 20,
-    image: "https://loremflickr.com/800/800/avocado?lock=1",
-    department: "Organic Produce",
+    name: "Zenith Gold Espresso",
+    price: 3.50,
+    originalPrice: 4.50,
+    discountPercentage: 22,
+    description: "Our signature blend with notes of dark chocolate and toasted hazelnut.",
+    image: "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?auto=format&fit=crop&q=80&w=800",
+    department: "Signature Coffee",
     options: {
-      ripeness: ["Firm", "Ready to Eat", "Very Soft"]
+      size: ["Single Shot", "Double Shot", "Triple Shot"],
+      bean: ["House Blend", "Ethopian Single Origin", "Decaf"]
+    },
+    optionPriceModifiers: {
+      size: {
+        "Double Shot": 1.50,
+        "Triple Shot": 2.50
+      },
+      bean: {
+        "Ethopian Single Origin": 1.00
+      }
     }
   },
   {
     id: "2",
-    name: "Heirloom Tomatoes",
-    price: 4.99,
-    image: "https://loremflickr.com/800/800/tomato?lock=2",
-    department: "Organic Produce",
+    name: "Velvet Oat Latte",
+    price: 5.50,
+    description: "Smooth espresso paired with creamy oat milk and a hint of Madagascar vanilla.",
+    image: "https://images.unsplash.com/photo-1570968915860-54d5c301fa9f?auto=format&fit=crop&q=80&w=800",
+    department: "Signature Coffee",
     options: {
-      variety: ["Red", "Yellow", "Purple"]
+      size: ["Regular", "Large"],
+      sweetness: ["None", "Less Sugar", "Normal", "Extra Sweet"]
+    },
+    optionPriceModifiers: {
+      size: {
+        "Large": 1.25
+      }
     }
   },
   {
     id: "3",
-    name: "Organic Baby Spinach",
-    price: 2.44,
-    originalPrice: 3.49,
-    discountPercentage: 30,
-    image: "https://loremflickr.com/800/800/spinach?lock=3",
-    department: "Organic Produce",
+    name: "Midnight Cold Brew",
+    price: 4.75,
+    originalPrice: 5.50,
+    discountPercentage: 14,
+    description: "18-hour slow-steeped cold brew for a bold, low-acid finish.",
+    image: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&q=80&w=800",
+    department: "Signature Coffee",
     options: {
-      size: ["Small Bag", "Family Size"]
+      size: ["12oz", "16oz", "24oz"],
+      topping: ["None", "Sweet Cream Cold Foam", "Salted Caramel Foam"]
+    },
+    optionPriceModifiers: {
+      size: {
+        "16oz": 0.75,
+        "24oz": 1.50
+      },
+      topping: {
+        "Sweet Cream Cold Foam": 1.00,
+        "Salted Caramel Foam": 1.25
+      }
     }
   },
+
+  // Artisanal Tea
   {
     id: "4",
-    name: "Fresh Honeycrisp Apples",
-    price: 5.99,
-    image: "https://loremflickr.com/800/800/apple?lock=4",
-    department: "Organic Produce",
+    name: "Ceremonial Matcha Latte",
+    price: 6.00,
+    description: "Premium grade Uji matcha whisked to perfection with your choice of milk.",
+    image: "https://images.unsplash.com/photo-1536281140500-77814e0c5fb5?auto=format&fit=crop&q=80&w=800",
+    department: "Artisanal Tea",
     options: {
-      quantity: ["Single", "Bag of 6", "Box of 12"]
+      size: ["Regular", "Large"],
+      milk: ["Whole Milk", "Oat Milk", "Almond Milk", "Soy Milk"]
+    },
+    optionPriceModifiers: {
+      size: {
+        "Large": 1.00
+      },
+      milk: {
+        "Oat Milk": 0.50,
+        "Almond Milk": 0.50
+      }
     }
   },
   {
     id: "5",
-    name: "Organic Carrots Bunch",
-    price: 2.99,
-    image: "https://loremflickr.com/800/800/carrot?lock=5",
-    department: "Organic Produce"
+    name: "Imperial Earl Grey",
+    price: 4.00,
+    description: "Fine black tea infused with cold-pressed bergamot oil.",
+    image: "https://images.unsplash.com/photo-1594631252845-29fc4cc8cbf9?auto=format&fit=crop&q=80&w=800",
+    department: "Artisanal Tea",
+    options: {
+      size: ["Pot for One", "Pot for Two"],
+      honey: ["None", "Wildflower Honey", "Manuka Honey"]
+    },
+    optionPriceModifiers: {
+      size: {
+        "Pot for Two": 3.00
+      },
+      honey: {
+        "Manuka Honey": 2.00
+      }
+    }
   },
 
-  // Dairy & Artisanal Cheese
+  // Gourmet Pastries
   {
     id: "6",
-    name: "Artisanal Brie",
-    price: 12.99,
-    image: "https://loremflickr.com/800/800/brie?lock=6",
-    department: "Dairy & Artisanal Cheese",
+    name: "Honeycomb Croissant",
+    price: 4.50,
+    originalPrice: 5.50,
+    discountPercentage: 18,
+    description: "Flaky, buttery layers filled with house-made honeycomb toffee.",
+    image: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&q=80&w=800",
+    department: "Gourmet Pastries",
     options: {
-      weight: ["250g", "500g"]
+      warming: ["Room Temp", "Warmed"]
     }
   },
   {
     id: "7",
-    name: "Aged Cheddar Block",
-    price: 8.50,
-    image: "https://loremflickr.com/800/800/cheddar?lock=7",
-    department: "Dairy & Artisanal Cheese",
+    name: "Dark Chocolate Sea Salt Muffin",
+    price: 3.75,
+    description: "Rich Belgian chocolate muffin topped with Maldon sea salt flakes.",
+    image: "https://images.unsplash.com/photo-1525124568695-c4c6cd3ea847?auto=format&fit=crop&q=80&w=800",
+    department: "Gourmet Pastries",
     options: {
-      aging: ["12 Months", "24 Months", "36 Months"]
+      pack: ["Single", "Box of 4", "Box of 12"]
+    },
+    optionPriceModifiers: {
+      pack: {
+        "Box of 4": 10.00,
+        "Box of 12": 28.00
+      }
     }
   },
   {
     id: "8",
-    name: "Organic Whole Milk",
-    price: 4.99,
-    image: "https://loremflickr.com/800/800/milk?lock=8",
-    department: "Dairy & Artisanal Cheese",
-    options: {
-      size: ["1L", "2L"]
-    }
-  },
-  {
-    id: "9",
-    name: "Grass-Fed Butter",
-    price: 5.99,
-    image: "https://loremflickr.com/800/800/butter?lock=9",
-    department: "Dairy & Artisanal Cheese",
-    options: {
-      type: ["Salted", "Unsalted"]
-    }
-  },
-  {
-    id: "10",
-    name: "Greek Yogurt Plain",
-    price: 6.49,
-    image: "https://loremflickr.com/800/800/yogurt?lock=10",
-    department: "Dairy & Artisanal Cheese",
-    options: {
-      fat_content: ["0%", "2%", "5%"]
-    }
-  },
-
-  // Bakery & Patisserie
-  {
-    id: "11",
-    name: "Sourdough Loaf",
-    price: 6.50,
-    image: "https://loremflickr.com/800/800/sourdough?lock=11",
-    department: "Bakery & Patisserie",
-    options: {
-      sliced: ["Yes", "No"]
-    }
-  },
-  {
-    id: "12",
-    name: "Butter Croissants (4-pack)",
-    price: 8.99,
-    image: "https://loremflickr.com/800/800/croissant?lock=12",
-    department: "Bakery & Patisserie"
-  },
-  {
-    id: "13",
-    name: "French Baguette",
-    price: 3.99,
-    image: "https://loremflickr.com/800/800/baguette?lock=13",
-    department: "Bakery & Patisserie"
-  },
-  {
-    id: "14",
-    name: "Chocolate Babka",
-    price: 12.50,
-    image: "https://loremflickr.com/800/800/babka?lock=14",
-    department: "Bakery & Patisserie"
-  },
-  {
-    id: "15",
-    name: "Blueberry Muffins (6-pack)",
-    price: 9.99,
-    image: "https://loremflickr.com/800/800/muffin?lock=15",
-    department: "Bakery & Patisserie"
-  },
-
-  // Prime Meats
-  {
-    id: "16",
-    name: "Ribeye Steak (12oz)",
-    price: 24.99,
-    image: "https://loremflickr.com/800/800/steak?lock=16",
-    department: "Prime Meats",
-    options: {
-      cut: ["Standard", "Thick Cut"]
-    }
-  },
-  {
-    id: "17",
-    name: "Organic Chicken Breast",
-    price: 14.50,
-    image: "https://loremflickr.com/800/800/chicken?lock=17",
-    department: "Prime Meats",
-    options: {
-      quantity: ["2-pack", "4-pack"]
-    }
-  },
-  {
-    id: "18",
-    name: "Wild Caught Salmon Fillet",
-    price: 18.99,
-    image: "https://loremflickr.com/800/800/salmon?lock=18",
-    department: "Prime Meats",
-    options: {
-      skin: ["On", "Off"]
-    }
-  },
-  {
-    id: "19",
-    name: "Thick-Cut Bacon",
-    price: 9.99,
-    image: "https://loremflickr.com/800/800/bacon?lock=19",
-    department: "Prime Meats",
-    options: {
-      flavor: ["Smoked", "Maple", "Peppered"]
-    }
-  },
-  {
-    id: "20",
-    name: "Ground Wagyu Beef",
-    price: 16.99,
-    image: "https://loremflickr.com/800/800/beef?lock=20",
-    department: "Prime Meats",
-    options: {
-      fat_ratio: ["80/20", "90/10"]
-    }
-  },
-
-  // Fine Wines
-  {
-    id: "21",
-    name: "Cabernet Sauvignon",
-    price: 25.99,
-    image: "https://loremflickr.com/800/800/wine?lock=21",
-    department: "Fine Wines",
-    options: {
-      size: ["750ml", "1.5L"]
-    }
-  },
-  {
-    id: "22",
-    name: "Napa Valley Chardonnay",
-    price: 22.50,
-    image: "https://loremflickr.com/800/800/wine?lock=22",
-    department: "Fine Wines",
-    options: {
-      size: ["750ml"]
-    }
-  },
-  {
-    id: "23",
-    name: "French Pinot Noir",
-    price: 28.99,
-    image: "https://loremflickr.com/800/800/wine?lock=23",
-    department: "Fine Wines"
-  },
-  {
-    id: "24",
-    name: "Prosecco Sparkling Wine",
-    price: 19.99,
-    image: "https://loremflickr.com/800/800/champagne?lock=24",
-    department: "Fine Wines"
-  },
-  {
-    id: "25",
-    name: "New Zealand Sauvignon Blanc",
-    price: 21.99,
-    image: "https://loremflickr.com/800/800/wine?lock=25",
-    department: "Fine Wines"
-  },
-
-  // Pantry Essentials
-  {
-    id: "26",
-    name: "Extra Virgin Olive Oil",
-    price: 14.99,
-    image: "https://loremflickr.com/800/800/oliveoil?lock=26",
-    department: "Pantry Essentials",
-    options: {
-      size: ["500ml", "1L"]
-    }
-  },
-  {
-    id: "27",
-    name: "Artisanal Pasta",
-    price: 5.99,
-    image: "https://loremflickr.com/800/800/pasta?lock=27",
-    department: "Pantry Essentials",
-    options: {
-      shape: ["Penne", "Fusilli", "Spaghetti"]
-    }
-  },
-  {
-    id: "28",
-    name: "Jasmine Rice (5 lbs)",
-    price: 8.99,
-    image: "https://loremflickr.com/800/800/rice?lock=28",
-    department: "Pantry Essentials"
-  },
-  {
-    id: "29",
-    name: "Organic Maple Syrup",
-    price: 12.99,
-    image: "https://loremflickr.com/800/800/syrup?lock=29",
-    department: "Pantry Essentials",
-    options: {
-      grade: ["Grade A Golden", "Grade A Amber", "Grade A Dark"]
-    }
-  },
-  {
-    id: "30",
-    name: "Sea Salt Flakes",
-    price: 6.50,
-    image: "https://loremflickr.com/800/800/salt?lock=30",
-    department: "Pantry Essentials"
+    name: "Pistachio Baklava Tart",
+    price: 5.25,
+    description: "A fusion of traditional baklava flavors in a delicate shortcrust tart.",
+    image: "https://images.unsplash.com/photo-1519915028121-7d3463d20b13?auto=format&fit=crop&q=80&w=800",
+    department: "Gourmet Pastries"
   }
 ];

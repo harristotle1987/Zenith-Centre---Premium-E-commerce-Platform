@@ -22,9 +22,10 @@ interface CartProps {
   onCheckout: (type: 'delivery' | 'in-shop') => void;
   user: any;
   currency: Currency;
+  onLogout?: () => void;
 }
 
-export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onCheckout, user, currency }: CartProps) {
+export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onCheckout, user, currency, onLogout }: CartProps) {
   const [orderType, setOrderType] = useState<'delivery' | 'in-shop'>('delivery');
   const [paymentTiming, setPaymentTiming] = useState<'before' | 'on-delivery'>('before');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer' | 'card'>('cash');
@@ -138,9 +139,23 @@ export function Cart({ isOpen, onClose, items, onUpdateQuantity, onRemove, onChe
         toast.success('Order placed successfully!');
         onCheckout(orderType);
       } else {
-        const errorData = await res.json();
-        console.error('Order failed response:', errorData);
-        toast.error(errorData.error || 'Order recording failed. Please try again or contact support.');
+        const contentType = res.headers.get('content-type');
+        let errorMessage = 'Order recording failed. Please try again or contact support.';
+        
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await res.json();
+          errorMessage = errorData.error || errorMessage;
+        } else {
+          const text = await res.text();
+          console.error('Non-JSON error response:', text);
+        }
+
+        if (res.status === 401 || res.status === 403) {
+          toast.error('Session expired. Please login again.');
+          if (onLogout) onLogout();
+        } else {
+          toast.error(errorMessage);
+        }
       }
     } catch (err) {
       console.error('Order connection error:', err);

@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 console.log('Server script starting...');
 import { neon } from '@neondatabase/serverless';
 import cors from 'cors';
@@ -17,98 +18,1601 @@ const APP_URL = process.env.APP_URL || process.env.VITE_APP_URL;
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET) : null;
 
 export const REAL_PRODUCTS: Record<string, any[]> = {
-  "Coffee": [
+  "Signature Coffee": [
     {
-      "name": "Espresso",
-      "price": 2.50,
-      "original_price": 3.00,
-      "discount_percentage": 17,
+      "name": "Zenith Gold Espresso",
+      "price": 6000.00,
+      "original_price": 8000.00,
+      "discount_percentage": 25,
+      "description": "Our signature blend with notes of dark chocolate and toasted hazelnut.",
       "image": "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?auto=format&fit=crop&q=80&w=800",
       "options": {
-        "sizes": ["Single", "Double"],
-        "colors": []
+        "size": ["Single Shot", "Double Shot", "Triple Shot"],
+        "bean": ["House Blend", "Ethopian Single Origin", "Decaf"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "Double Shot": 3000.00,
+          "Triple Shot": 5000.00
+        },
+        "bean": {
+          "Ethopian Single Origin": 2000.00
+        }
       }
     },
     {
-      "name": "Americano",
-      "price": 3.50,
-      "image": "https://images.unsplash.com/photo-1551030173-122aabc4489c?auto=format&fit=crop&q=80&w=800",
-      "options": {
-        "sizes": ["Small", "Medium", "Large"],
-        "colors": []
-      }
-    },
-    {
-      "name": "Latte",
-      "price": 4.00,
-      "original_price": 4.50,
-      "discount_percentage": 11,
+      "name": "Velvet Oat Latte",
+      "price": 9000.00,
+      "description": "Smooth espresso paired with creamy oat milk and a hint of Madagascar vanilla.",
       "image": "https://images.unsplash.com/photo-1570968915860-54d5c301fa9f?auto=format&fit=crop&q=80&w=800",
       "options": {
-        "sizes": ["Small", "Medium", "Large"],
-        "colors": []
+        "size": ["Regular", "Large"],
+        "sweetness": ["None", "Less Sugar", "Normal", "Extra Sweet"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "Large": 3000.00
+        }
       }
     },
     {
-      "name": "Cappuccino",
-      "price": 4.50,
-      "image": "https://images.unsplash.com/photo-1534778101976-62847782c213?auto=format&fit=crop&q=80&w=800"
-    },
-    {
-      "name": "Mocha",
-      "price": 5.00,
-      "image": "https://images.unsplash.com/photo-1578314675249-a6910f80cc4e?auto=format&fit=crop&q=80&w=800"
-    },
-    {
-      "name": "Caramel Macchiato",
-      "price": 5.25,
-      "image": "https://images.unsplash.com/photo-1485808191679-5f86510681a2?auto=format&fit=crop&q=80&w=800"
-    }
-  ],
-  "Tea & Other": [
-    {
-      "name": "Chai Latte",
-      "price": 4.50,
-      "image": "https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&q=80&w=800"
-    },
-    {
-      "name": "Matcha Latte",
-      "price": 5.00,
-      "image": "https://images.unsplash.com/photo-1536281140500-77814e0c5fb5?auto=format&fit=crop&q=80&w=800"
-    },
-    {
-      "name": "Earl Grey Tea",
-      "price": 3.00,
-      "image": "https://images.unsplash.com/photo-1594631252845-29fc4cc8cbf9?auto=format&fit=crop&q=80&w=800"
-    },
-    {
-      "name": "Hot Chocolate",
-      "price": 4.00,
-      "image": "https://images.unsplash.com/photo-1542990253-0d0f5be5f0ed?auto=format&fit=crop&q=80&w=800"
-    }
-  ],
-  "Pastries": [
-    {
-      "name": "Butter Croissant",
-      "price": 3.50,
-      "image": "https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&q=80&w=800"
-    },
-    {
-      "name": "Chocolate Croissant",
-      "price": 4.00,
-      "image": "https://images.unsplash.com/photo-1626844131082-256783844137?auto=format&fit=crop&q=80&w=800"
-    },
-    {
-      "name": "Blueberry Muffin",
-      "price": 3.00,
-      "original_price": 3.75,
+      "name": "Midnight Cold Brew",
+      "price": 8000.00,
+      "original_price": 10000.00,
       "discount_percentage": 20,
-      "image": "https://images.unsplash.com/photo-1525124568695-c4c6cd3ea847?auto=format&fit=crop&q=80&w=800"
+      "description": "18-hour slow-steeped cold brew for a bold, low-acid finish.",
+      "image": "https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["12oz", "16oz", "24oz"],
+        "topping": ["None", "Sweet Cream Cold Foam", "Salted Caramel Foam"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "16oz": 2000.00,
+          "24oz": 4000.00
+        },
+        "topping": {
+          "Sweet Cream Cold Foam": 2500.00,
+          "Salted Caramel Foam": 3000.00
+        }
+      }
+    }
+  ],
+  "Artisanal Tea": [
+    {
+      "name": "Ceremonial Matcha Latte",
+      "price": 10000.00,
+      "description": "Premium grade Uji matcha whisked to perfection with your choice of milk.",
+      "image": "https://images.unsplash.com/photo-1536281140500-77814e0c5fb5?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["Regular", "Large"],
+        "milk": ["Whole Milk", "Oat Milk", "Almond Milk", "Soy Milk"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "Large": 3000.00
+        },
+        "milk": {
+          "Oat Milk": 1500.00,
+          "Almond Milk": 1500.00
+        }
+      }
     },
     {
-      "name": "Banana Bread",
-      "price": 3.50,
-      "image": "https://images.unsplash.com/photo-1596591606975-97ee5cef3a1e?auto=format&fit=crop&q=80&w=800"
+      "name": "Imperial Earl Grey",
+      "price": 7000.00,
+      "description": "Fine black tea infused with cold-pressed bergamot oil.",
+      "image": "https://images.unsplash.com/photo-1594631252845-29fc4cc8cbf9?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["Pot for One", "Pot for Two"],
+        "honey": ["None", "Wildflower Honey", "Manuka Honey"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "Pot for Two": 5000.00
+        },
+        "honey": {
+          "Manuka Honey": 4000.00
+        }
+      }
+    }
+  ],
+  "Gourmet Pastries": [
+    {
+      "name": "Honeycomb Croissant",
+      "price": 8000.00,
+      "original_price": 10000.00,
+      "discount_percentage": 20,
+      "description": "Flaky, buttery layers filled with house-made honeycomb toffee.",
+      "image": "https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "warming": ["Room Temp", "Warmed"]
+      }
+    },
+    {
+      "name": "Dark Chocolate Sea Salt Muffin",
+      "price": 6500.00,
+      "description": "Rich Belgian chocolate muffin topped with Maldon sea salt flakes.",
+      "image": "https://images.unsplash.com/photo-1525124568695-c4c6cd3ea847?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "pack": ["Single", "Box of 4", "Box of 12"]
+      },
+      "optionPriceModifiers": {
+        "pack": {
+          "Box of 4": 20000.00,
+          "Box of 12": 55000.00
+        }
+      }
+    },
+    {
+      "name": "Pistachio Baklava Tart",
+      "price": 9000.00,
+      "description": "A fusion of traditional baklava flavors in a delicate shortcrust tart.",
+      "image": "https://images.unsplash.com/photo-1519915028121-7d3463d20b13?auto=format&fit=crop&q=80&w=800"
+    }
+  ],
+  "Breakfast Platters": [
+    {
+      "name": "Classic English Breakfast",
+      "price": 35000.00,
+      "description": "Two eggs, bacon, sausage, baked beans, grilled tomato, and toast.",
+      "image": "https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "eggs": ["Fried", "Scrambled", "Poached"],
+        "extra": ["None", "Extra Bacon", "Extra Sausage", "Black Pudding"]
+      },
+      "optionPriceModifiers": {
+        "extra": {
+          "Extra Bacon": 6000.00,
+          "Extra Sausage": 6000.00,
+          "Black Pudding": 8000.00
+        }
+      }
+    },
+    {
+      "name": "Avocado Toast Special",
+      "price": 28000.00,
+      "description": "Smashed avocado on sourdough with chili flakes and lemon.",
+      "image": "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "topping": ["None", "Poached Egg", "Smoked Salmon", "Feta Cheese"]
+      },
+      "optionPriceModifiers": {
+        "topping": {
+          "Poached Egg": 4000.00,
+          "Smoked Salmon": 12000.00,
+          "Feta Cheese": 3000.00
+        }
+      }
+    },
+    {
+      "name": "Pancake Stack",
+      "price": 25000.00,
+      "description": "Fluffy buttermilk pancakes served with maple syrup.",
+      "image": "https://images.unsplash.com/photo-1528448443353-8326690f055a?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["3 Stack", "5 Stack", "7 Stack"],
+        "topping": ["Maple Syrup", "Nutella", "Fresh Berries"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "5 Stack": 8000.00,
+          "7 Stack": 15000.00
+        },
+        "topping": {
+          "Nutella": 4000.00,
+          "Fresh Berries": 6000.00
+        }
+      }
+    },
+    {
+      "name": "Belgian Waffle Delight",
+      "price": 26000.00,
+      "description": "Crispy Belgian waffles with whipped cream.",
+      "image": "https://images.unsplash.com/photo-1562376552-0d160a2f238d?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "topping": ["Whipped Cream", "Ice Cream", "Fruit Mix"]
+      },
+      "optionPriceModifiers": {
+        "topping": {
+          "Ice Cream": 6000.00,
+          "Fruit Mix": 6000.00
+        }
+      }
+    },
+    {
+      "name": "Eggs Benedict",
+      "price": 38000.00,
+      "description": "Poached eggs on English muffins with hollandaise sauce.",
+      "image": "https://images.unsplash.com/photo-1600335814564-21797ac797d1?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "protein": ["Ham", "Spinach", "Salmon"]
+      },
+      "optionPriceModifiers": {
+        "protein": {
+          "Spinach": 3000.00,
+          "Salmon": 10000.00
+        }
+      }
+    },
+    {
+      "name": "Omelette Your Way",
+      "price": 30000.00,
+      "description": "Three-egg omelette with your choice of fillings.",
+      "image": "https://images.unsplash.com/photo-1510693206972-df098062cb71?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "filling": ["Cheese", "Mushrooms", "Ham", "Peppers"]
+      },
+      "optionPriceModifiers": {
+        "filling": {
+          "Mushrooms": 3000.00,
+          "Ham": 6000.00,
+          "Peppers": 3000.00
+        }
+      }
+    },
+    {
+      "name": "French Toast Brioche",
+      "price": 28000.00,
+      "description": "Thick-cut brioche soaked in cinnamon custard.",
+      "image": "https://images.unsplash.com/photo-1484723091739-30a097e8f929?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "topping": ["Maple Syrup", "Nutella", "Bacon"]
+      },
+      "optionPriceModifiers": {
+        "topping": {
+          "Nutella": 4000.00,
+          "Bacon": 8000.00
+        }
+      }
+    },
+    {
+      "name": "Breakfast Burrito",
+      "price": 32000.00,
+      "description": "Scrambled eggs, black beans, cheese, and salsa in a flour tortilla.",
+      "image": "https://images.unsplash.com/photo-1564758564527-b97d79cb27c1?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["Regular", "Large"],
+        "extra": ["None", "Guacamole", "Sour Cream"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "Large": 6000.00
+        },
+        "extra": {
+          "Guacamole": 4500.00,
+          "Sour Cream": 2000.00
+        }
+      }
+    },
+    {
+      "name": "Smoked Salmon Bagel",
+      "price": 36000.00,
+      "description": "Toasted bagel with cream cheese, capers, and smoked salmon.",
+      "image": "https://images.unsplash.com/photo-1518562180175-34a163b1a9a6?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "bagel": ["Plain Bagel", "Everything Bagel", "Sesame Bagel"]
+      },
+      "optionPriceModifiers": {
+        "bagel": {
+          "Everything Bagel": 1500.00,
+          "Sesame Bagel": 1500.00
+        }
+      }
+    },
+    {
+      "name": "Fruit & Yogurt Parfait",
+      "price": 22000.00,
+      "description": "Greek yogurt with granola and seasonal fruits.",
+      "image": "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["Small", "Large"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "Large": 6000.00
+        }
+      }
+    },
+    {
+      "name": "Steak and Eggs",
+      "price": 65000.00,
+      "description": "Grilled steak served with two eggs and hash browns.",
+      "image": "https://images.unsplash.com/photo-1546833998-877b37c2e5c6?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "steak_size": ["6oz", "10oz"],
+        "doneness": ["Rare", "Medium Rare", "Medium", "Well Done"]
+      },
+      "optionPriceModifiers": {
+        "steak_size": {
+          "10oz": 20000.00
+        }
+      }
+    },
+    {
+      "name": "Veggie Breakfast Skillet",
+      "price": 30000.00,
+      "description": "Roasted potatoes with seasonal vegetables and eggs.",
+      "image": "https://images.unsplash.com/photo-1550338300-f9a475b50ba2?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "protein": ["Eggs", "Tofu Scramble"],
+        "extra": ["None", "Extra Veggies", "Avocado"]
+      },
+      "optionPriceModifiers": {
+        "protein": {
+          "Tofu Scramble": 3000.00
+        },
+        "extra": {
+          "Extra Veggies": 4500.00,
+          "Avocado": 6000.00
+        }
+      }
+    }
+  ],
+  "Fresh Juices & Smoothies": [
+    {
+      "name": "Green Detox Juice",
+      "price": 15000.00,
+      "description": "Kale, spinach, cucumber, apple, and lemon.",
+      "image": "https://images.unsplash.com/photo-1610970881699-44a5587cabec?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["12oz", "16oz"],
+        "boost": ["None", "Ginger Shot", "Spirulina"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "16oz": 4000.00
+        },
+        "boost": {
+          "Ginger Shot": 3000.00,
+          "Spirulina": 4500.00
+        }
+      }
+    },
+    {
+      "name": "Tropical Sunrise Smoothie",
+      "price": 16000.00,
+      "description": "Mango, pineapple, orange, and coconut milk.",
+      "image": "https://images.unsplash.com/photo-1525385133336-24416724002d?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["12oz", "16oz"],
+        "protein": ["None", "Whey Protein", "Plant Protein"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "16oz": 4000.00
+        },
+        "protein": {
+          "Whey Protein": 6000.00,
+          "Plant Protein": 6000.00
+        }
+      }
+    },
+    {
+      "name": "Berry Blast Smoothie",
+      "price": 16000.00,
+      "description": "Mixed berries, banana, and almond milk.",
+      "image": "https://images.unsplash.com/photo-1553530666-ba11a7da3888?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["12oz", "16oz"],
+        "sweetener": ["None", "Honey", "Agave"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "16oz": 4000.00
+        },
+        "sweetener": {
+          "Honey": 1500.00,
+          "Agave": 1500.00
+        }
+      }
+    },
+    {
+      "name": "Ginger Zinger Juice",
+      "price": 14000.00,
+      "description": "Carrot, apple, and a heavy kick of ginger.",
+      "image": "https://images.unsplash.com/photo-1595981267035-7b04ca84a82d?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["12oz", "16oz"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "16oz": 4000.00
+        }
+      }
+    },
+    {
+      "name": "Protein Power Shake",
+      "price": 18000.00,
+      "description": "Chocolate protein, banana, peanut butter, and milk.",
+      "image": "https://images.unsplash.com/photo-1593085512500-5d55148d6f0d?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "milk": ["Whole Milk", "Oat Milk", "Almond Milk"],
+        "extra": ["None", "Creatine", "L-Glutamine"]
+      },
+      "optionPriceModifiers": {
+        "milk": {
+          "Oat Milk": 1500.00,
+          "Almond Milk": 1500.00
+        },
+        "extra": {
+          "Creatine": 4500.00,
+          "L-Glutamine": 4500.00
+        }
+      }
+    },
+    {
+      "name": "Watermelon Refresher",
+      "price": 12000.00,
+      "description": "Fresh watermelon juice with a hint of mint.",
+      "image": "https://images.unsplash.com/photo-1563227812-0ea4c22e6cc8?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["12oz", "16oz", "24oz"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "16oz": 3000.00,
+          "24oz": 6000.00
+        }
+      }
+    },
+    {
+      "name": "Carrot & Orange Vitality",
+      "price": 14000.00,
+      "description": "Freshly squeezed carrot and orange juice.",
+      "image": "https://images.unsplash.com/photo-1613478223719-2ab802602422?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["12oz", "16oz"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "16oz": 4000.00
+        }
+      }
+    },
+    {
+      "name": "Peanut Butter Banana Smoothie",
+      "price": 17000.00,
+      "description": "Creamy blend of PB, banana, and honey.",
+      "image": "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "extra": ["None", "Chia Seeds", "Flax Seeds"]
+      },
+      "optionPriceModifiers": {
+        "extra": {
+          "Chia Seeds": 2250.00,
+          "Flax Seeds": 2250.00
+        }
+      }
+    },
+    {
+      "name": "Kale & Apple Cleanse",
+      "price": 15000.00,
+      "description": "Refreshing green juice with a sweet apple finish.",
+      "image": "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["12oz", "16oz"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "16oz": 4000.00
+        }
+      }
+    },
+    {
+      "name": "Mango Tango Smoothie",
+      "price": 16000.00,
+      "description": "Mango and passionfruit tropical blend.",
+      "image": "https://images.unsplash.com/photo-1546173159-315724a31696?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["12oz", "16oz"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "16oz": 4000.00
+        }
+      }
+    },
+    {
+      "name": "Beetroot Energy Blast",
+      "price": 15000.00,
+      "description": "Beetroot, ginger, and lemon for a natural boost.",
+      "image": "https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["12oz", "16oz"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "16oz": 4000.00
+        }
+      }
+    },
+    {
+      "name": "Acai Berry Smoothie",
+      "price": 20000.00,
+      "description": "Premium acai berries blended with banana and guarana.",
+      "image": "https://images.unsplash.com/photo-1590301157890-4810ed352733?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "topping": ["None", "Granola", "Coconut Flakes"]
+      },
+      "optionPriceModifiers": {
+        "topping": {
+          "Granola": 3000.00,
+          "Coconut Flakes": 1500.00
+        }
+      }
+    }
+  ],
+  "Savory Sandwiches": [
+    {
+      "name": "Grilled Chicken Pesto",
+      "price": 32000.00,
+      "description": "Grilled chicken, basil pesto, mozzarella, and tomatoes.",
+      "image": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "bread": ["Ciabatta", "Sourdough", "Gluten-Free"],
+        "extra": ["None", "Extra Chicken", "Avocado"]
+      },
+      "optionPriceModifiers": {
+        "bread": {
+          "Gluten-Free": 4500.00
+        },
+        "extra": {
+          "Extra Chicken": 9000.00,
+          "Avocado": 6000.00
+        }
+      }
+    },
+    {
+      "name": "Turkey & Swiss Club",
+      "price": 30000.00,
+      "description": "Roasted turkey, Swiss cheese, bacon, lettuce, and mayo.",
+      "image": "https://images.unsplash.com/photo-1553909489-cd47e0907980?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "bread": ["White", "Whole Wheat", "Multigrain"]
+      }
+    },
+    {
+      "name": "Roast Beef Dip",
+      "price": 36000.00,
+      "description": "Thinly sliced roast beef on a baguette with au jus.",
+      "image": "https://images.unsplash.com/photo-1559466273-d95e72debaf8?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "cheese": ["None", "Provolone", "Swiss"]
+      },
+      "optionPriceModifiers": {
+        "cheese": {
+          "Provolone": 3000.00,
+          "Swiss": 3000.00
+        }
+      }
+    },
+    {
+      "name": "Caprese Panini",
+      "price": 28000.00,
+      "description": "Fresh mozzarella, tomatoes, basil, and balsamic glaze.",
+      "image": "https://images.unsplash.com/photo-1539252554453-80ab65ce3586?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "extra": ["None", "Prosciutto", "Chicken"]
+      },
+      "optionPriceModifiers": {
+        "extra": {
+          "Prosciutto": 9000.00,
+          "Chicken": 7500.00
+        }
+      }
+    },
+    {
+      "name": "Tuna Melt",
+      "price": 28000.00,
+      "description": "Tuna salad with melted cheddar on toasted rye.",
+      "image": "https://images.unsplash.com/photo-1540713434306-58505cf1b6fc?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "bread": ["Rye", "Sourdough"]
+      }
+    },
+    {
+      "name": "Veggie Hummus Wrap",
+      "price": 25000.00,
+      "description": "Hummus, cucumber, peppers, presidency, and feta in a wrap.",
+      "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "protein": ["None", "Falafel", "Grilled Tofu"]
+      },
+      "optionPriceModifiers": {
+        "protein": {
+          "Falafel": 6000.00,
+          "Grilled Tofu": 6000.00
+        }
+      }
+    },
+    {
+      "name": "BBQ Pulled Pork Sliders",
+      "price": 34000.00,
+      "description": "Slow-cooked pulled pork with coleslaw on brioche buns.",
+      "image": "https://images.unsplash.com/photo-1521305916504-4a1121188589?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "quantity": ["2 Sliders", "3 Sliders"]
+      },
+      "optionPriceModifiers": {
+        "quantity": {
+          "3 Sliders": 10500.00
+        }
+      }
+    },
+    {
+      "name": "BLT Supreme",
+      "price": 28000.00,
+      "description": "Bacon, lettuce, tomato, and avocado on toasted sourdough.",
+      "image": "https://images.unsplash.com/photo-1619096252214-ef06c45683e3?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "extra_bacon": ["No", "Yes"]
+      },
+      "optionPriceModifiers": {
+        "extra_bacon": {
+          "Yes": 6000.00
+        }
+      }
+    },
+    {
+      "name": "Falafel Wrap",
+      "price": 28000.00,
+      "description": "Crispy falafel with tahini, pickles, and salad.",
+      "image": "https://images.unsplash.com/photo-1547496502-affa22d38842?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "sauce": ["Tahini", "Spicy Harissa", "Garlic Sauce"]
+      }
+    },
+    {
+      "name": "Italian Sub",
+      "price": 35000.00,
+      "description": "Salami, ham, pepperoni, provolone, and Italian dressing.",
+      "image": "https://images.unsplash.com/photo-1509722747041-616f39b57569?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["6 inch", "12 inch"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "12 inch": 15000.00
+        }
+      }
+    },
+    {
+      "name": "Reuben Sandwich",
+      "price": 38000.00,
+      "description": "Corned beef, sauerkraut, Swiss cheese, and Russian dressing.",
+      "image": "https://images.unsplash.com/photo-1534422298391-e4f8c170db06?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "meat_amount": ["Regular", "Extra Meat"]
+      },
+      "optionPriceModifiers": {
+        "meat_amount": {
+          "Extra Meat": 12000.00
+        }
+      }
+    },
+    {
+      "name": "Egg Salad Croissant",
+      "price": 24000.00,
+      "description": "Creamy egg salad on a flaky butter croissant.",
+      "image": "https://images.unsplash.com/photo-1550617931-e17a7b70dce2?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "extra": ["None", "Bacon Bits", "Chives"]
+      },
+      "optionPriceModifiers": {
+        "extra": {
+          "Bacon Bits": 3000.00
+        }
+      }
+    }
+  ],
+  "Dessert Cakes": [
+    {
+      "name": "Red Velvet Slice",
+      "price": 12000.00,
+      "description": "Classic red velvet cake with cream cheese frosting.",
+      "image": "https://images.unsplash.com/photo-1586788680434-30d324671ff6?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["Single Slice", "Whole Cake"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "Whole Cake": 100000.00
+        }
+      }
+    },
+    {
+      "name": "New York Cheesecake",
+      "price": 14000.00,
+      "description": "Rich and creamy cheesecake with a graham cracker crust.",
+      "image": "https://images.unsplash.com/photo-1533134242443-d4fd215305ad?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "topping": ["Plain", "Strawberry Sauce", "Blueberry Sauce"]
+      },
+      "optionPriceModifiers": {
+        "topping": {
+          "Strawberry Sauce": 3000.00,
+          "Blueberry Sauce": 3000.00
+        }
+      }
+    },
+    {
+      "name": "Chocolate Lava Cake",
+      "price": 16000.00,
+      "description": "Warm chocolate cake with a molten center.",
+      "image": "https://images.unsplash.com/photo-1624353365286-3f8d62daad51?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "side": ["None", "Vanilla Ice Cream", "Whipped Cream"]
+      },
+      "optionPriceModifiers": {
+        "side": {
+          "Vanilla Ice Cream": 6000.00,
+          "Whipped Cream": 3000.00
+        }
+      }
+    },
+    {
+      "name": "Carrot Cake",
+      "price": 12000.00,
+      "description": "Spiced carrot cake with walnuts and cream cheese frosting.",
+      "image": "https://images.unsplash.com/photo-1536565465111-f94f20463090?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "extra_walnuts": ["No", "Yes"]
+      },
+      "optionPriceModifiers": {
+        "extra_walnuts": {
+          "Yes": 1500.00
+        }
+      }
+    },
+    {
+      "name": "Tiramisu",
+      "price": 15000.00,
+      "description": "Italian dessert with coffee-soaked ladyfingers and mascarpone.",
+      "image": "https://images.unsplash.com/photo-1571877223200-581709df8224?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Lemon Drizzle Cake",
+      "price": 10000.00,
+      "description": "Zesty lemon sponge with a crunchy sugar glaze.",
+      "image": "https://images.unsplash.com/photo-1519869325930-281384150729?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Black Forest Gateau",
+      "price": 15000.00,
+      "description": "Chocolate sponge with cherries and whipped cream.",
+      "image": "https://images.unsplash.com/photo-1606312619070-d48b4c652a52?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Victoria Sponge",
+      "price": 12000.00,
+      "description": "Classic sponge cake with jam and cream.",
+      "image": "https://images.unsplash.com/photo-1464349095431-e9a21285b5f3?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Salted Caramel Tart",
+      "price": 14000.00,
+      "description": "Buttery pastry filled with salted caramel and chocolate ganache.",
+      "image": "https://images.unsplash.com/photo-1519915028121-7d3463d20b13?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Blueberry Muffin Cake",
+      "price": 9000.00,
+      "description": "Giant muffin-style cake bursting with fresh blueberries.",
+      "image": "https://images.unsplash.com/photo-1607958996333-41aef7caefaa?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Coffee Walnut Cake",
+      "price": 12000.00,
+      "description": "Rich coffee-flavored sponge with crunchy walnuts.",
+      "image": "https://images.unsplash.com/photo-1509482560494-4126f8225994?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Rainbow Layer Cake",
+      "price": 15000.00,
+      "description": "Colorful multi-layered cake with vanilla frosting.",
+      "image": "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&q=80&w=800"
+    }
+  ],
+  "Healthy Bowls": [
+    {
+      "name": "Quinoa Buddha Bowl",
+      "price": 25000.00,
+      "description": "Quinoa, roasted sweet potato, kale, chickpeas, and tahini dressing.",
+      "image": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "protein": ["None", "Grilled Chicken", "Tofu", "Salmon"]
+      },
+      "optionPriceModifiers": {
+        "protein": {
+          "Grilled Chicken": 8000.00,
+          "Tofu": 6000.00,
+          "Salmon": 12000.00
+        }
+      }
+    },
+    {
+      "name": "Teriyaki Salmon Bowl",
+      "price": 35000.00,
+      "description": "Grilled salmon with teriyaki glaze, brown rice, and steamed broccoli.",
+      "image": "https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "rice": ["Brown Rice", "White Rice", "Cauliflower Rice"]
+      },
+      "optionPriceModifiers": {
+        "rice": {
+          "Cauliflower Rice": 4000.00
+        }
+      }
+    },
+    {
+      "name": "Mediterranean Chickpea Bowl",
+      "price": 22000.00,
+      "description": "Chickpeas, cucumber, tomatoes, olives, and feta over couscous.",
+      "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "extra_feta": ["No", "Yes"]
+      },
+      "optionPriceModifiers": {
+        "extra_feta": {
+          "Yes": 1000.00
+        }
+      }
+    },
+    {
+      "name": "Roasted Veggie Grain Bowl",
+      "price": 23000.00,
+      "description": "Seasonal roasted vegetables over farro with lemon vinaigrette.",
+      "image": "https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Poke Bowl",
+      "price": 32000.00,
+      "description": "Fresh raw fish with avocado, edamame, and seaweed salad.",
+      "image": "https://images.unsplash.com/photo-1546069901-e516a6677395?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "fish": ["Tuna", "Salmon", "Tofu"],
+        "size": ["Regular", "Large"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "Large": 8000.00
+        }
+      }
+    },
+    {
+      "name": "Falafel Power Bowl",
+      "price": 24000.00,
+      "description": "Falafel, hummus, tabbouleh, and mixed greens.",
+      "image": "https://images.unsplash.com/photo-1547496502-affa22d38842?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Southwest Chicken Bowl",
+      "price": 28000.00,
+      "description": "Grilled chicken, black beans, corn, avocado, and chipotle ranch.",
+      "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Tofu Stir-Fry Bowl",
+      "price": 23000.00,
+      "description": "Crispy tofu with mixed vegetables in a ginger soy sauce.",
+      "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Kale Caesar Bowl",
+      "price": 21000.00,
+      "description": "Massaged kale with parmesan, croutons, and Caesar dressing.",
+      "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "protein": ["None", "Grilled Chicken", "Shrimp"]
+      },
+      "optionPriceModifiers": {
+        "protein": {
+          "Grilled Chicken": 8000.00,
+          "Shrimp": 12000.00
+        }
+      }
+    },
+    {
+      "name": "Sweet Potato & Black Bean Bowl",
+      "price": 22000.00,
+      "description": "Roasted sweet potato, black beans, and brown rice with lime.",
+      "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Asian Noodle Bowl",
+      "price": 25000.00,
+      "description": "Rice noodles with shredded carrots, peanuts, and cilantro.",
+      "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Harvest Salad Bowl",
+      "price": 23000.00,
+      "description": "Mixed greens with apples, walnuts, and goat cheese.",
+      "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&q=80&w=800"
+    }
+  ],
+  "Electronics: Smartphones": [
+    {
+      "name": "iPhone 15 Pro Max",
+      "price": 1850000.00,
+      "description": "A17 Pro chip, titanium design, and advanced camera system.",
+      "image": "https://images.unsplash.com/photo-1696446701796-da61225697cc?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "storage": ["256GB", "512GB", "1TB"],
+        "color": ["Natural Titanium", "Blue Titanium", "Black Titanium"]
+      },
+      "optionPriceModifiers": {
+        "storage": {
+          "512GB": 250000.00,
+          "1TB": 500000.00
+        }
+      },
+      "color_images": {
+        "Natural Titanium": "https://images.unsplash.com/photo-1696446701796-da61225697cc?auto=format&fit=crop&q=80&w=800",
+        "Blue Titanium": "https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&q=80&w=800",
+        "Black Titanium": "https://images.unsplash.com/photo-1696446702183-cbd13d78e1e7?auto=format&fit=crop&q=80&w=800"
+      }
+    },
+    {
+      "name": "Samsung Galaxy S24 Ultra",
+      "price": 1650000.00,
+      "description": "Galaxy AI, 200MP camera, and S Pen included.",
+      "image": "https://images.unsplash.com/photo-1707230560201-90089e7a7065?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "storage": ["256GB", "512GB", "1TB"],
+        "color": ["Titanium Gray", "Titanium Black", "Titanium Violet"]
+      },
+      "optionPriceModifiers": {
+        "storage": {
+          "512GB": 150000.00,
+          "1TB": 350000.00
+        }
+      },
+      "color_images": {
+        "Titanium Gray": "https://images.unsplash.com/photo-1707230560201-90089e7a7065?auto=format&fit=crop&q=80&w=800",
+        "Titanium Black": "https://images.unsplash.com/photo-1708433306893-605697079201?auto=format&fit=crop&q=80&w=800",
+        "Titanium Violet": "https://images.unsplash.com/photo-1708433306915-0f6222880004?auto=format&fit=crop&q=80&w=800"
+      }
+    },
+    {
+      "name": "Google Pixel 8 Pro",
+      "price": 1200000.00,
+      "description": "The best of Google AI and the most advanced Pixel camera.",
+      "image": "https://images.unsplash.com/photo-1696426571060-6e4695034685?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "storage": ["128GB", "256GB", "512GB"]
+      },
+      "optionPriceModifiers": {
+        "storage": {
+          "256GB": 80000.00,
+          "512GB": 180000.00
+        }
+      }
+    },
+    {
+      "name": "OnePlus 12",
+      "price": 950000.00,
+      "description": "Smooth Beyond Belief. 4th Gen Hasselblad Camera for Mobile.",
+      "image": "https://images.unsplash.com/photo-1710150937667-270889211c00?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Xiaomi 14 Ultra",
+      "price": 1400000.00,
+      "description": "Lens to Legend. Leica Summilux optical lens.",
+      "image": "https://images.unsplash.com/photo-1710150937667-270889211c00?auto=format&fit=crop&q=80&w=800"
+    }
+  ],
+  "Electronics: Laptops": [
+    {
+      "name": "MacBook Pro 14\" M3",
+      "price": 2400000.00,
+      "description": "The most advanced chips ever built for a personal computer.",
+      "image": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "memory": ["8GB", "16GB", "24GB"],
+        "storage": ["512GB", "1TB", "2TB"]
+      },
+      "optionPriceModifiers": {
+        "memory": {
+          "16GB": 200000.00,
+          "24GB": 400000.00
+        },
+        "storage": {
+          "1TB": 200000.00,
+          "2TB": 600000.00
+        }
+      }
+    },
+    {
+      "name": "Dell XPS 13",
+      "price": 1800000.00,
+      "description": "Stunning design, powerful performance, and a vibrant display.",
+      "image": "https://images.unsplash.com/photo-1593642632823-8f785ba67e45?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "processor": ["Intel Core i5", "Intel Core i7"],
+        "ram": ["16GB", "32GB"]
+      },
+      "optionPriceModifiers": {
+        "processor": {
+          "Intel Core i7": 150000.00
+        },
+        "ram": {
+          "32GB": 100000.00
+        }
+      }
+    },
+    {
+      "name": "HP Spectre x360",
+      "price": 1950000.00,
+      "description": "Premium 2-in-1 laptop with a stunning OLED display.",
+      "image": "https://images.unsplash.com/photo-1544006659-f0b21f04cb1d?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "ASUS ROG Zephyrus G14",
+      "price": 2100000.00,
+      "description": "The world's most powerful 14-inch gaming laptop.",
+      "image": "https://images.unsplash.com/photo-1593642632823-8f785ba67e45?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Lenovo Legion Slim 7i",
+      "price": 1750000.00,
+      "description": "Sleek, powerful, and ready for any challenge.",
+      "image": "https://images.unsplash.com/photo-1593642632823-8f785ba67e45?auto=format&fit=crop&q=80&w=800"
+    }
+  ],
+  "Electronics: Audio": [
+    {
+      "name": "Sony WH-1000XM5",
+      "price": 450000.00,
+      "description": "Industry-leading noise canceling with exceptional sound quality.",
+      "image": "https://images.unsplash.com/photo-1613040809024-b4ef7ba99bc3?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "color": ["Black", "Platinum Silver", "Midnight Blue"]
+      }
+    },
+    {
+      "name": "AirPods Pro (2nd Gen)",
+      "price": 320000.00,
+      "description": "Active Noise Cancellation, Transparency mode, and personalized spatial audio.",
+      "image": "https://images.unsplash.com/photo-1588423770574-91993ca06f42?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "JBL Flip 6",
+      "price": 120000.00,
+      "description": "Powerful sound and deep bass in a portable, waterproof speaker.",
+      "image": "https://images.unsplash.com/photo-1612444530582-fc66183b16f7?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Bose QuietComfort Ultra",
+      "price": 520000.00,
+      "description": "World-class noise cancellation, quieter than ever before.",
+      "image": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Sennheiser Momentum 4",
+      "price": 480000.00,
+      "description": "Superior sound quality with 60 hours of battery life.",
+      "image": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=800"
+    }
+  ],
+  "Electronics: Accessories": [
+    {
+      "name": "Apple Watch Series 9",
+      "price": 650000.00,
+      "description": "Smarter. Brighter. Mightier.",
+      "image": "https://images.unsplash.com/photo-1546868871-70ca4844567c?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Samsung Galaxy Watch 6",
+      "price": 450000.00,
+      "description": "Know your health. Better your sleep.",
+      "image": "https://images.unsplash.com/photo-1546868871-70ca4844567c?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Logitech MX Master 3S",
+      "price": 150000.00,
+      "description": "An icon remastered. Quiet clicks and 8K DPI tracking.",
+      "image": "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Anker 737 Power Bank",
+      "price": 185000.00,
+      "description": "Ultra-powerful two-way charging with the latest Power Delivery 3.1.",
+      "image": "https://images.unsplash.com/photo-1546868871-70ca4844567c?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Razer BlackWidow V4 Pro",
+      "price": 280000.00,
+      "description": "The ultimate mechanical gaming keyboard.",
+      "image": "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&q=80&w=800"
+    }
+  ],
+  "Footwear: Male": [
+    {
+      "name": "Nike Air Max 270",
+      "price": 185000.00,
+      "description": "Nike's first lifestyle Air Max brings you style, comfort and big attitude.",
+      "image": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["40", "41", "42", "43", "44", "45"],
+        "color": ["Black/White", "Red/Black", "Triple White"]
+      },
+      "color_images": {
+        "Black/White": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=800",
+        "Red/Black": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=800",
+        "Triple White": "https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?auto=format&fit=crop&q=80&w=800"
+      }
+    },
+    {
+      "name": "Adidas Ultraboost Light",
+      "price": 210000.00,
+      "description": "Epic energy. Lightest ever. Experience the ultimate in comfort.",
+      "image": "https://images.unsplash.com/photo-1587563871167-1ee9c731aefb?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["40", "41", "42", "43", "44", "45"],
+        "color": ["Core Black", "Cloud White", "Solar Red"]
+      },
+      "color_images": {
+        "Core Black": "https://images.unsplash.com/photo-1587563871167-1ee9c731aefb?auto=format&fit=crop&q=80&w=800",
+        "Cloud White": "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&q=80&w=800",
+        "Solar Red": "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?auto=format&fit=crop&q=80&w=800"
+      }
+    },
+    {
+      "name": "Leather Chelsea Boots",
+      "price": 120000.00,
+      "description": "Classic leather boots for a sophisticated look.",
+      "image": "https://images.unsplash.com/photo-1638247025967-b4e38f787b76?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["40", "41", "42", "43", "44", "45"],
+        "color": ["Black", "Brown", "Tan"]
+      }
+    },
+    {
+      "name": "Puma RS-X Efekt",
+      "price": 145000.00,
+      "description": "Bold, retro-inspired sneakers with modern cushioning.",
+      "image": "https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "New Balance 550",
+      "price": 165000.00,
+      "description": "The return of a legend. Simple, clean, and not over-designed.",
+      "image": "https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Vans Old Skool",
+      "price": 85000.00,
+      "description": "The classic skate shoe and first to bare the iconic sidestripe.",
+      "image": "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Timberland 6-Inch Boot",
+      "price": 245000.00,
+      "description": "The original waterproof boot. Rugged and durable.",
+      "image": "https://images.unsplash.com/photo-1638247025967-b4e38f787b76?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Clarks Wallabee",
+      "price": 175000.00,
+      "description": "An iconic classic with its moccasin construction and structural silhouette.",
+      "image": "https://images.unsplash.com/photo-1638247025967-b4e38f787b76?auto=format&fit=crop&q=80&w=800"
+    }
+  ],
+  "Footwear: Female": [
+    {
+      "name": "Stiletto Heels",
+      "price": 75000.00,
+      "description": "Elegant stiletto heels for special occasions.",
+      "image": "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["36", "37", "38", "39", "40", "41"],
+        "color": ["Nude", "Black", "Red", "Gold"]
+      }
+    },
+    {
+      "name": "Platform Sneakers",
+      "price": 95000.00,
+      "description": "Trendy platform sneakers for everyday comfort and style.",
+      "image": "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["36", "37", "38", "39", "40", "41"],
+        "color": ["White", "Pink", "Beige"]
+      }
+    },
+    {
+      "name": "Ankle Strap Sandals",
+      "price": 55000.00,
+      "description": "Chic sandals with a comfortable ankle strap.",
+      "image": "https://images.unsplash.com/photo-1562273103-919a666d5a77?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["36", "37", "38", "39", "40", "41"],
+        "color": ["Black", "Silver", "Tan"]
+      }
+    },
+    {
+      "name": "Ballet Flats",
+      "price": 45000.00,
+      "description": "Classic and comfortable ballet flats for any outfit.",
+      "image": "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Converse Chuck Taylor",
+      "price": 65000.00,
+      "description": "The most iconic sneaker in the world.",
+      "image": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Dr. Martens 1460",
+      "price": 220000.00,
+      "description": "The original Dr. Martens boot. Built to last.",
+      "image": "https://images.unsplash.com/photo-1638247025967-b4e38f787b76?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Birkenstock Arizona",
+      "price": 125000.00,
+      "description": "The legendary two-strap sandal. Timeless and comfortable.",
+      "image": "https://images.unsplash.com/photo-1562273103-919a666d5a77?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Steve Madden Carrson",
+      "price": 85000.00,
+      "description": "Classic block heel sandal for any occasion.",
+      "image": "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&q=80&w=800"
+    }
+  ],
+  "Furniture: Living Room": [
+    {
+      "name": "Velvet 3-Seater Sofa",
+      "price": 850000.00,
+      "description": "Luxurious velvet sofa with gold-finished legs.",
+      "image": "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "color": ["Emerald Green", "Royal Blue", "Charcoal Gray"]
+      }
+    },
+    {
+      "name": "Marble Coffee Table",
+      "price": 320000.00,
+      "description": "Elegant marble top table with a minimalist metal frame.",
+      "image": "https://images.unsplash.com/photo-1533090161767-e6ffed986c88?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "shape": ["Round", "Rectangular"]
+      },
+      "optionPriceModifiers": {
+        "shape": {
+          "Rectangular": 50000.00
+        }
+      }
+    },
+    {
+      "name": "Modern Armchair",
+      "price": 180000.00,
+      "description": "Comfortable and stylish armchair with wooden accents.",
+      "image": "https://images.unsplash.com/photo-1598191383441-7365cbd22c38?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "L-Shaped Sectional Sofa",
+      "price": 1200000.00,
+      "description": "Spacious and comfortable sectional for the whole family.",
+      "image": "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "TV Stand Unit",
+      "price": 250000.00,
+      "description": "Sleek TV stand with ample storage for media devices.",
+      "image": "https://images.unsplash.com/photo-1533090161767-e6ffed986c88?auto=format&fit=crop&q=80&w=800"
+    }
+  ],
+  "Furniture: Dining Room": [
+    {
+      "name": "6-Seater Dining Set",
+      "price": 750000.00,
+      "description": "Solid wood dining table with 6 upholstered chairs.",
+      "image": "https://images.unsplash.com/photo-1533090161767-e6ffed986c88?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Bar Stools (Set of 2)",
+      "price": 120000.00,
+      "description": "Modern adjustable bar stools with leather seats.",
+      "image": "https://images.unsplash.com/photo-1598191383441-7365cbd22c38?auto=format&fit=crop&q=80&w=800"
+    }
+  ],
+  "Furniture: Office": [
+    {
+      "name": "Ergonomic Office Chair",
+      "price": 280000.00,
+      "description": "High-back mesh chair with lumbar support.",
+      "image": "https://images.unsplash.com/photo-1598191383441-7365cbd22c38?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Standing Desk",
+      "price": 420000.00,
+      "description": "Electric height-adjustable desk for a healthier workspace.",
+      "image": "https://images.unsplash.com/photo-1533090161767-e6ffed986c88?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Bookshelf Unit",
+      "price": 185000.00,
+      "description": "Modern bookshelf with multiple tiers for your collection.",
+      "image": "https://images.unsplash.com/photo-1533090161767-e6ffed986c88?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Filing Cabinet",
+      "price": 95000.00,
+      "description": "Secure and organized storage for your important documents.",
+      "image": "https://images.unsplash.com/photo-1533090161767-e6ffed986c88?auto=format&fit=crop&q=80&w=800"
+    }
+  ],
+  "Furniture: Bedroom": [
+    {
+      "name": "King Size Bed Frame",
+      "price": 550000.00,
+      "description": "Sturdy and elegant bed frame with a padded headboard.",
+      "image": "https://images.unsplash.com/photo-1505693419148-403bb22b9f11?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["Queen", "King"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "King": 100000.00
+        }
+      }
+    },
+    {
+      "name": "Memory Foam Mattress",
+      "price": 450000.00,
+      "description": "Pressure-relieving memory foam for the perfect night's sleep.",
+      "image": "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&q=80&w=800"
+    }
+  ],
+  "Clothes: Male": [
+    {
+      "name": "Premium Cotton Oxford Shirt",
+      "price": 45000.00,
+      "description": "Classic fit oxford shirt made from 100% premium cotton.",
+      "image": "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["S", "M", "L", "XL", "XXL"],
+        "color": ["White", "Light Blue", "Pink"]
+      }
+    },
+    {
+      "name": "Slim Fit Chinos",
+      "price": 35000.00,
+      "description": "Versatile chinos with a hint of stretch for comfort.",
+      "image": "https://images.unsplash.com/photo-1473966968600-fa801b869a1a?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["30", "32", "34", "36", "38"],
+        "color": ["Khaki", "Navy", "Olive", "Black"]
+      }
+    },
+    {
+      "name": "Denim Jacket",
+      "price": 65000.00,
+      "description": "Timeless denim jacket with a rugged finish.",
+      "image": "https://images.unsplash.com/photo-1576905341939-4028f60ae357?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Graphic T-Shirt",
+      "price": 15000.00,
+      "description": "Soft cotton t-shirt with a unique graphic print.",
+      "image": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Linen Button-Down",
+      "price": 38000.00,
+      "description": "Breathable linen shirt for a relaxed summer look.",
+      "image": "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Cargo Joggers",
+      "price": 32000.00,
+      "description": "Comfortable joggers with multiple utility pockets.",
+      "image": "https://images.unsplash.com/photo-1473966968600-fa801b869a1a?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Wool Blend Overcoat",
+      "price": 125000.00,
+      "description": "Classic overcoat for a sharp, sophisticated look.",
+      "image": "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Leather Biker Jacket",
+      "price": 185000.00,
+      "description": "Rugged leather jacket with a modern fit.",
+      "image": "https://images.unsplash.com/photo-1576905341939-4028f60ae357?auto=format&fit=crop&q=80&w=800"
+    }
+  ],
+  "Clothes: Female": [
+    {
+      "name": "Floral Summer Dress",
+      "price": 55000.00,
+      "description": "Lightweight and breezy floral dress perfect for summer days.",
+      "image": "https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["XS", "S", "M", "L", "XL"],
+        "pattern": ["Blue Floral", "Red Floral", "Yellow Daisy"]
+      }
+    },
+    {
+      "name": "High-Waisted Skinny Jeans",
+      "price": 42000.00,
+      "description": "Classic skinny jeans with a flattering high-waist fit.",
+      "image": "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["24", "26", "28", "30", "32"],
+        "wash": ["Light Wash", "Medium Wash", "Dark Wash", "Black"]
+      }
+    },
+    {
+      "name": "Silk Blouse",
+      "price": 48000.00,
+      "description": "Elegant silk blouse with a soft sheen.",
+      "image": "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Midi Skirt",
+      "price": 38000.00,
+      "description": "Versatile midi skirt with a comfortable elastic waist.",
+      "image": "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Oversized Blazer",
+      "price": 75000.00,
+      "description": "Trendy oversized blazer for a chic, professional look.",
+      "image": "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Knit Cardigan",
+      "price": 45000.00,
+      "description": "Soft and cozy knit cardigan for layering.",
+      "image": "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Leather Tote Bag",
+      "price": 85000.00,
+      "description": "Spacious leather tote for all your essentials.",
+      "image": "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Cashmere Scarf",
+      "price": 55000.00,
+      "description": "Luxuriously soft cashmere scarf for cold days.",
+      "image": "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&q=80&w=800"
+    }
+  ],
+  "Specialty Cold Drinks": [
+    {
+      "name": "Iced Caramel Macchiato",
+      "price": 12000.00,
+      "description": "Espresso with milk and vanilla syrup, topped with caramel drizzle.",
+      "image": "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["12oz", "16oz", "24oz"],
+        "milk": ["Whole Milk", "Oat Milk", "Almond Milk"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "16oz": 2000.00,
+          "24oz": 4000.00
+        },
+        "milk": {
+          "Oat Milk": 1500.00,
+          "Almond Milk": 1500.00
+        }
+      }
+    },
+    {
+      "name": "Strawberry Lemonade",
+      "price": 10000.00,
+      "description": "Freshly squeezed lemonade with real strawberry puree.",
+      "image": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["12oz", "16oz"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "16oz": 3000.00
+        }
+      }
+    },
+    {
+      "name": "Peach Iced Tea",
+      "price": 9000.00,
+      "description": "House-brewed black tea with natural peach flavor.",
+      "image": "https://images.unsplash.com/photo-1499638673689-79a0b5115d87?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["16oz", "24oz"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "24oz": 3000.00
+        }
+      }
+    },
+    {
+      "name": "Vanilla Bean Frappe",
+      "price": 14000.00,
+      "description": "Blended ice drink with real vanilla bean and whipped cream.",
+      "image": "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["12oz", "16oz"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "16oz": 2000.00
+        }
+      }
+    },
+    {
+      "name": "Matcha Cream Frappe",
+      "price": 16000.00,
+      "description": "Blended ceremonial matcha with cream and ice.",
+      "image": "https://images.unsplash.com/photo-1536281140500-77814e0c5fb5?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["12oz", "16oz"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "16oz": 750.00
+        }
+      }
+    },
+    {
+      "name": "Sparkling Hibiscus Tea",
+      "price": 11000.00,
+      "description": "Fizzy hibiscus tea with a hint of lime.",
+      "image": "https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Iced Mocha Latte",
+      "price": 13000.00,
+      "description": "Rich chocolate and espresso over ice.",
+      "image": "https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Passionfruit Cooler",
+      "price": 12000.00,
+      "description": "Refreshing passionfruit and citrus blend.",
+      "image": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Vietnamese Iced Coffee",
+      "price": 13000.00,
+      "description": "Strong coffee with sweetened condensed milk over ice.",
+      "image": "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Blue Raspberry Slushie",
+      "price": 9000.00,
+      "description": "Classic blue raspberry flavored ice slush.",
+      "image": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Mint Lime Mojito",
+      "price": 13000.00,
+      "description": "Non-alcoholic refreshing mint and lime drink.",
+      "image": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&q=80&w=800"
+    },
+    {
+      "name": "Chocolate Milkshake",
+      "price": 15000.00,
+      "description": "Thick and creamy chocolate milkshake.",
+      "image": "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&q=80&w=800",
+      "options": {
+        "size": ["Regular", "Large"],
+        "extra_syrup": ["No", "Yes"]
+      },
+      "optionPriceModifiers": {
+        "size": {
+          "Large": 4000.00
+        },
+        "extra_syrup": {
+          "Yes": 1500.00
+        }
+      }
     }
   ]
 };
@@ -128,16 +1632,16 @@ const generateOrderNumber = () => {
 
 // Fallback mock data if DB is not connected yet
 const MOCK_PRODUCTS = [
-  { id: "1", name: "Espresso", price: 3.00, image: "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?auto=format&fit=crop&q=80&w=800", department: "Coffee", stock: 100 },
-  { id: "2", name: "Latte", price: 4.50, image: "https://images.unsplash.com/photo-1570968915860-54d5c301fa9f?auto=format&fit=crop&q=80&w=800", department: "Coffee", stock: 100 },
-  { id: "3", name: "Butter Croissant", price: 3.50, image: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&q=80&w=800", department: "Pastries", stock: 50 }
+  { id: "1", name: "Zenith Gold Espresso", price: 8000.00, image: "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?auto=format&fit=crop&q=80&w=800", department: "Signature Coffee", stock: 100 },
+  { id: "2", name: "Velvet Oat Latte", price: 12000.00, image: "https://images.unsplash.com/photo-1570968915860-54d5c301fa9f?auto=format&fit=crop&q=80&w=800", department: "Signature Coffee", stock: 100 },
+  { id: "3", name: "Honeycomb Croissant", price: 10000.00, image: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&q=80&w=800", department: "Gourmet Pastries", stock: 50 }
 ];
 
 const MOCK_DEPARTMENTS = [
   "All",
-  "Coffee",
-  "Tea & Other",
-  "Pastries"
+  "Signature Coffee",
+  "Artisanal Tea",
+  "Gourmet Pastries"
 ];
 
 const app = express();
@@ -222,6 +1726,15 @@ io.on('connection', (socket) => {
       await sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(255)`;
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT`;
       await sql`CREATE TABLE IF NOT EXISTS settings (key VARCHAR(255) PRIMARY KEY, value VARCHAR(255) NOT NULL)`;
+      await sql`CREATE TABLE IF NOT EXISTS roles (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) UNIQUE NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`;
+      await sql`INSERT INTO roles (name) VALUES 
+        ('super_admin'), ('staff'), ('accountant'), ('secretary'), ('manager'), ('counter_staff') 
+        ON CONFLICT (name) DO NOTHING`;
       await sql`CREATE TABLE IF NOT EXISTS newsletter_subscribers (
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
@@ -230,17 +1743,19 @@ io.on('connection', (socket) => {
       await sql`INSERT INTO settings (key, value) VALUES ('exchange_rate', '1') ON CONFLICT (key) DO NOTHING`;
       await sql`CREATE TABLE IF NOT EXISTS feedback (
         id SERIAL PRIMARY KEY,
-        product_id VARCHAR(255) NOT NULL,
-        user_id INTEGER REFERENCES users(id),
+        product_id BIGINT REFERENCES products(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
         guest_name VARCHAR(255),
         rating INTEGER CHECK (rating >= 1 AND rating <= 5),
         comment TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`;
+      console.log('Feedback table initialized');
       await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT`;
       await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS original_price DECIMAL(10, 2)`;
       await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS discount_percentage INTEGER`;
       await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS options JSONB`;
+      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS option_price_modifiers JSONB`;
       await sql`ALTER TABLE products DROP CONSTRAINT IF EXISTS products_name_key`;
       console.log('Payment and guest columns checked/added to orders and transactions tables, settings table initialized, feedback table initialized, product description column checked, unique constraint on product name dropped');
     } catch (e: any) {
@@ -258,7 +1773,7 @@ io.on('connection', (socket) => {
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) {
       console.log('authenticateToken: No token provided');
-      return res.sendStatus(401);
+      return res.status(401).json({ error: 'Unauthorized', details: 'No token provided' });
     }
 
     jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
@@ -559,7 +2074,7 @@ io.on('connection', (socket) => {
     try {
       console.time('fetchProducts');
       const products = await sql`
-        SELECT p.id, p.name, p.price, p.original_price as "originalPrice", p.discount_percentage as "discountPercentage", p.image_url as image, p.stock_quantity as stock, d.name as department, p.description, p.options
+        SELECT p.id, p.name, p.price, p.original_price as "originalPrice", p.discount_percentage as "discountPercentage", p.image_url as image, p.stock_quantity as stock, d.name as department, p.description, p.options, p.option_price_modifiers as "optionPriceModifiers", p.color_images as "colorImages", p.gallery, p.option_images as "optionImages"
         FROM products p
         LEFT JOIN departments d ON p.department_id = d.id
       `;
@@ -787,7 +2302,11 @@ io.on('connection', (socket) => {
           description TEXT,
           stock_quantity INTEGER DEFAULT 100,
           department_id BIGINT REFERENCES departments(id) ON DELETE CASCADE,
-          options JSONB
+          options JSONB,
+          option_price_modifiers JSONB,
+          color_images JSONB,
+          gallery JSONB,
+          option_images JSONB
         )
       `;
 
@@ -795,6 +2314,10 @@ io.on('connection', (socket) => {
         await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS original_price DECIMAL(10, 2)`;
         await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS discount_percentage INTEGER`;
         await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS options JSONB`;
+        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS option_price_modifiers JSONB`;
+        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS color_images JSONB`;
+        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS gallery JSONB`;
+        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS option_images JSONB`;
       } catch (e) {
         // Columns might already exist
       }
@@ -827,8 +2350,8 @@ io.on('connection', (socket) => {
       await sql`
         CREATE TABLE IF NOT EXISTS orders (
           id BIGSERIAL PRIMARY KEY,
-          user_id BIGINT REFERENCES users(id),
-          staff_id BIGINT REFERENCES users(id),
+          user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+          staff_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
           guest_name VARCHAR(255),
           guest_email VARCHAR(255),
           guest_contact VARCHAR(255),
@@ -864,7 +2387,7 @@ io.on('connection', (socket) => {
         CREATE TABLE IF NOT EXISTS order_items (
           id BIGSERIAL PRIMARY KEY,
           order_id BIGINT REFERENCES orders(id) ON DELETE CASCADE,
-          product_id BIGINT REFERENCES products(id),
+          product_id BIGINT REFERENCES products(id) ON DELETE SET NULL,
           quantity INTEGER NOT NULL,
           price_at_purchase DECIMAL(10, 2) NOT NULL,
           customizations JSONB
@@ -880,7 +2403,7 @@ io.on('connection', (socket) => {
       await sql`
         CREATE TABLE IF NOT EXISTS transactions (
           id BIGSERIAL PRIMARY KEY,
-          order_id BIGINT REFERENCES orders(id),
+          order_id BIGINT REFERENCES orders(id) ON DELETE CASCADE,
           amount DECIMAL(10, 2) NOT NULL,
           payment_method VARCHAR(50) DEFAULT 'card',
           payment_reference VARCHAR(255),
@@ -962,7 +2485,16 @@ io.on('connection', (socket) => {
         `;
       }
 
+      // Fix foreign key constraints for existing tables
+      try {
+        await sql`ALTER TABLE order_items DROP CONSTRAINT IF EXISTS order_items_product_id_fkey`;
+        await sql`ALTER TABLE order_items ADD CONSTRAINT order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL`;
+      } catch (e: any) {
+        console.warn('Could not update order_items foreign key constraint:', e.message);
+      }
+
       // Seed departments
+      console.log('Seeding departments...');
       const mockDepts = Object.keys(REAL_PRODUCTS);
 
       for (const deptName of mockDepts) {
@@ -983,18 +2515,30 @@ io.on('connection', (socket) => {
           const products = REAL_PRODUCTS[deptName];
           for (const product of products) {
             await sql`
-              INSERT INTO products (name, price, original_price, discount_percentage, image_url, stock_quantity, department_id, options)
+              INSERT INTO products (name, price, original_price, discount_percentage, image_url, description, stock_quantity, department_id, options, option_price_modifiers, color_images)
               VALUES (
                 ${product.name}, 
                 ${product.price}, 
                 ${product.original_price || null}, 
                 ${product.discount_percentage || null}, 
                 ${product.image}, 
+                ${product.description || ''},
                 100, 
                 ${deptId}, 
-                ${product.options ? JSON.stringify(product.options) : null}
+                ${product.options ? JSON.stringify(product.options) : null},
+                ${product.optionPriceModifiers ? JSON.stringify(product.optionPriceModifiers) : null},
+                ${product.color_images ? JSON.stringify(product.color_images) : null}
               )
-              ON CONFLICT (name) DO NOTHING
+              ON CONFLICT (name) DO UPDATE SET
+                price = EXCLUDED.price,
+                original_price = EXCLUDED.original_price,
+                discount_percentage = EXCLUDED.discount_percentage,
+                image_url = EXCLUDED.image_url,
+                description = EXCLUDED.description,
+                department_id = EXCLUDED.department_id,
+                options = EXCLUDED.options,
+                option_price_modifiers = EXCLUDED.option_price_modifiers,
+                color_images = EXCLUDED.color_images
             `;
           }
         }
@@ -1187,6 +2731,77 @@ io.on('connection', (socket) => {
         return res.json({ totalInflow: 0, recentOrders: [] });
       }
       res.status(500).json({ error: 'Failed to fetch accounts' });
+    }
+  });
+
+  app.get('/api/admin/reports', authenticateToken, authorizeRole(['super_admin', 'accountant', 'manager']), async (req: any, res) => {
+    const { period } = req.query;
+    console.log('GET /api/admin/reports - Period:', period);
+    try {
+      let interval = '1 day';
+      if (period === 'weekly') interval = '7 days';
+      else if (period === 'monthly') interval = '1 month';
+      else if (period === 'quarterly') interval = '3 months';
+      else if (period === 'annually') interval = '1 year';
+
+      const report = await sql`
+        SELECT 
+          COALESCE(SUM(total_amount), 0) as total_sales,
+          COUNT(*) as total_orders,
+          COALESCE(AVG(total_amount), 0) as average_order_value
+        FROM orders 
+        WHERE (status = 'PAID' OR status = 'COMPLETED')
+        AND created_at >= NOW() - ${interval}::interval
+      `;
+
+      const salesOverTime = await sql`
+        SELECT 
+          DATE_TRUNC('day', created_at) as date,
+          SUM(total_amount) as sales
+        FROM orders
+        WHERE (status = 'PAID' OR status = 'COMPLETED')
+        AND created_at >= NOW() - ${interval}::interval
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `;
+
+      res.json({ ...report[0], salesOverTime });
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+      res.status(500).json({ error: 'Failed to fetch reports' });
+    }
+  });
+
+  app.get('/api/admin/roles', authenticateToken, authorizeRole(['super_admin', 'manager']), async (req, res) => {
+    try {
+      const roles = await sql`SELECT * FROM roles ORDER BY name ASC`;
+      res.json(roles);
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+      res.status(500).json({ error: 'Failed to fetch roles' });
+    }
+  });
+
+  app.post('/api/admin/roles', authenticateToken, authorizeRole(['super_admin', 'manager']), async (req, res) => {
+    try {
+      const { name, description } = req.body;
+      if (!name) return res.status(400).json({ error: 'Role name is required' });
+      
+      const result = await sql`
+        INSERT INTO roles (name, description)
+        VALUES (${name.toLowerCase().replace(/\s+/g, '_')}, ${description})
+        ON CONFLICT (name) DO NOTHING
+        RETURNING *
+      `;
+      
+      if (result.length === 0) {
+        return res.status(400).json({ error: 'Role already exists' });
+      }
+      
+      res.json(result[0]);
+    } catch (error) {
+      console.error('Error creating role:', error);
+      res.status(500).json({ error: 'Failed to create role' });
     }
   });
 
@@ -1791,7 +3406,7 @@ io.on('connection', (socket) => {
 
   app.post('/api/products', authenticateToken, authorizeRole(['super_admin', 'staff', 'secretary', 'manager', 'counter_staff']), async (req: any, res) => {
     try {
-      const { name, price, original_price, discount_percentage, image_url, department_name, stock_quantity, description, options } = req.body;
+      const { name, price, original_price, discount_percentage, image_url, department_name, stock_quantity, description, options, optionPriceModifiers, gallery, optionImages } = req.body;
       console.log('Adding product:', name, 'to department:', department_name);
       if (!name || !price || !department_name) {
         return res.status(400).json({ error: 'Name, price, and department are required' });
@@ -1808,8 +3423,8 @@ io.on('connection', (socket) => {
       const finalStock = stock_quantity !== undefined ? stock_quantity : 100;
       
       const result = await sql`
-        INSERT INTO products (name, price, original_price, discount_percentage, image_url, stock_quantity, department_id, description, options) 
-        VALUES (${name}, ${price}, ${original_price || null}, ${discount_percentage || null}, ${image_url}, ${finalStock}, ${department_id}, ${description || null}, ${options ? JSON.stringify(options) : null}) 
+        INSERT INTO products (name, price, original_price, discount_percentage, image_url, stock_quantity, department_id, description, options, option_price_modifiers, gallery, option_images) 
+        VALUES (${name}, ${price}, ${original_price || null}, ${discount_percentage || null}, ${image_url}, ${finalStock}, ${department_id}, ${description || null}, ${options ? JSON.stringify(options) : null}, ${optionPriceModifiers ? JSON.stringify(optionPriceModifiers) : null}, ${gallery ? JSON.stringify(gallery) : null}, ${optionImages ? JSON.stringify(optionImages) : null}) 
         RETURNING *
       `;
       const io = req.app.get('io');
@@ -1819,6 +3434,21 @@ io.on('connection', (socket) => {
     } catch (error) {
       console.error('Add product error:', error);
       res.status(500).json({ error: 'Failed to add product', details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  const upload = multer({ storage: multer.memoryStorage() });
+  app.post('/api/upload', authenticateToken, authorizeRole(['super_admin', 'staff', 'secretary', 'manager', 'counter_staff']), upload.array('images', 10), async (req: any, res) => {
+    try {
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ error: 'No files uploaded' });
+      }
+      const files = req.files as Express.Multer.File[];
+      const urls = files.map(file => `data:${file.mimetype};base64,${file.buffer.toString('base64')}`);
+      res.json({ urls });
+    } catch (error) {
+      console.error('Upload error:', error);
+      res.status(500).json({ error: 'Failed to upload images' });
     }
   });
 
@@ -1843,7 +3473,7 @@ io.on('connection', (socket) => {
   app.put('/api/products/:id', authenticateToken, authorizeRole(['super_admin', 'staff', 'secretary', 'manager', 'counter_staff']), async (req: any, res) => {
     try {
       const { id } = req.params;
-      const { name, price, original_price, discount_percentage, image_url, department_name, stock_quantity, description, options } = req.body;
+      const { name, price, original_price, discount_percentage, image_url, department_name, stock_quantity, description, options, optionPriceModifiers, gallery, optionImages } = req.body;
       
       if (!name || !price || !department_name) {
         return res.status(400).json({ error: 'Name, price, and department are required' });
@@ -1860,7 +3490,7 @@ io.on('connection', (socket) => {
       
       const result = await sql`
         UPDATE products 
-        SET name = ${name}, price = ${price}, original_price = ${original_price || null}, discount_percentage = ${discount_percentage || null}, image_url = ${image_url}, stock_quantity = ${finalStock}, department_id = ${department_id}, description = ${description || null}, options = ${options ? JSON.stringify(options) : null}
+        SET name = ${name}, price = ${price}, original_price = ${original_price || null}, discount_percentage = ${discount_percentage || null}, image_url = ${image_url}, stock_quantity = ${finalStock}, department_id = ${department_id}, description = ${description || null}, options = ${options ? JSON.stringify(options) : null}, option_price_modifiers = ${optionPriceModifiers ? JSON.stringify(optionPriceModifiers) : null}, gallery = ${gallery ? JSON.stringify(gallery) : null}, option_images = ${optionImages ? JSON.stringify(optionImages) : null}
         WHERE id = ${id} 
         RETURNING *
       `;
@@ -1881,8 +3511,13 @@ io.on('connection', (socket) => {
 
   // Feedback Routes
   app.get('/api/feedback/:productId', async (req, res) => {
+    const { productId } = req.params;
+    console.log(`GET /api/feedback/${productId} called`);
     try {
-      const { productId } = req.params;
+      if (!productId || productId === 'undefined') {
+        console.warn('Invalid productId received in feedback fetch');
+        return res.json([]);
+      }
       const feedback = await sql`
         SELECT f.*, u.name as user_name 
         FROM feedback f 
@@ -1890,13 +3525,16 @@ io.on('connection', (socket) => {
         WHERE f.product_id = ${productId} 
         ORDER BY f.created_at DESC
       `;
+      console.log(`Successfully fetched ${feedback.length} feedback items for product ${productId}`);
       res.json(feedback);
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to fetch feedback' });
+    } catch (error: any) {
+      console.error(`Error fetching feedback for product ${productId}:`, error);
+      res.status(500).json({ error: 'Failed to fetch feedback', details: error.message });
     }
   });
 
   app.post('/api/feedback', async (req: any, res) => {
+    console.log('POST /api/feedback called', req.body);
     try {
       const { product_id, user_id, guest_name, rating, comment } = req.body;
       if (!product_id || !rating) {
@@ -1908,10 +3546,11 @@ io.on('connection', (socket) => {
         VALUES (${product_id}, ${user_id || null}, ${guest_name || null}, ${rating}, ${comment})
         RETURNING *
       `;
+      console.log('Feedback submitted successfully:', result[0].id);
       res.json(result[0]);
-    } catch (error) {
-      console.error('Feedback error:', error);
-      res.status(500).json({ error: 'Failed to submit feedback' });
+    } catch (error: any) {
+      console.error('Feedback submission error:', error);
+      res.status(500).json({ error: 'Failed to submit feedback', details: error.message });
     }
   });
 

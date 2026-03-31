@@ -11,8 +11,8 @@ export const ProductsSection = ({
   editProdDiscountPercentage, setEditProdDiscountPercentage,
   editProdDescription, setEditProdDescription, editProdImage, setEditProdImage, 
   editProdDept, setEditProdDept, editProdStock, setEditProdStock, 
-  editingStockId, setEditingStockId, editStockValue, setEditStockValue, uploadingImage, 
-  handleImageUpload, uploadingEditImage, handleEditImageUpload, 
+  editingStockId, setEditingStockId, editStockValue, setEditStockValue, uploadingNewImage, 
+  handleNewImageUpload, uploadingEditImage, handleEditImageUpload, 
   currency, exchangeRate, minStockThreshold, newProdName, setNewProdName, 
   newProdPrice, setNewProdPrice, 
   newProdOriginalPrice, setNewProdOriginalPrice,
@@ -20,12 +20,87 @@ export const ProductsSection = ({
   newProdDescription, setNewProdDescription, 
   newProdImage, setNewProdImage, newProdDept, setNewProdDept, newProdStock, 
   setNewProdStock,
-  newProdColors, setNewProdColors,
-  newProdSizes, setNewProdSizes,
-  editProdColors, setEditProdColors,
-  editProdSizes, setEditProdSizes
+  newProdOptions, setNewProdOptions,
+  newProdPriceModifiers, setNewProdPriceModifiers,
+  editProdOptions, setEditProdOptions,
+  editProdPriceModifiers, setEditProdPriceModifiers,
+  newProdGallery, setNewProdGallery,
+  newProdOptionImages, setNewProdOptionImages,
+  editProdGallery, setEditProdGallery,
+  editProdOptionImages, setEditProdOptionImages
 }: any) => {
   const [priceCurrency, setPriceCurrency] = useState<'NGN' | 'USD'>('NGN');
+
+  const [newGalleryUrl, setNewGalleryUrl] = useState('');
+  const [editGalleryUrl, setEditGalleryUrl] = useState('');
+
+  const [newOptImgKey, setNewOptImgKey] = useState('');
+  const [newOptImgValue, setNewOptImgValue] = useState('');
+  const [newOptImgUrl, setNewOptImgUrl] = useState('');
+
+  const [editOptImgKey, setEditOptImgKey] = useState('');
+  const [editOptImgValue, setEditOptImgValue] = useState('');
+  const [editOptImgUrl, setEditOptImgUrl] = useState('');
+
+  const addGalleryImage = (isEdit = false) => {
+    const url = isEdit ? editGalleryUrl : newGalleryUrl;
+    if (!url) return;
+    if (isEdit) {
+      setEditProdGallery([...editProdGallery, url]);
+      setEditGalleryUrl('');
+    } else {
+      setNewProdGallery([...newProdGallery, url]);
+      setNewGalleryUrl('');
+    }
+  };
+
+  const removeGalleryImage = (idx: number, isEdit = false) => {
+    if (isEdit) {
+      setEditProdGallery(editProdGallery.filter((_: any, i: number) => i !== idx));
+    } else {
+      setNewProdGallery(newProdGallery.filter((_: any, i: number) => i !== idx));
+    }
+  };
+
+  const addOptionImage = (isEdit = false) => {
+    const key = isEdit ? editOptImgKey : newOptImgKey;
+    const value = isEdit ? editOptImgValue : newOptImgValue;
+    const url = isEdit ? editOptImgUrl : newOptImgUrl;
+
+    if (!key || !value || !url) return;
+
+    if (isEdit) {
+      const updated = { ...editProdOptionImages };
+      if (!updated[key]) updated[key] = {};
+      updated[key][value] = url;
+      setEditProdOptionImages(updated);
+      setEditOptImgUrl('');
+    } else {
+      const updated = { ...newProdOptionImages };
+      if (!updated[key]) updated[key] = {};
+      updated[key][value] = url;
+      setNewProdOptionImages(updated);
+      setNewOptImgUrl('');
+    }
+  };
+
+  const removeOptionImage = (key: string, value: string, isEdit = false) => {
+    if (isEdit) {
+      const updated = { ...editProdOptionImages };
+      if (updated[key]) {
+        delete updated[key][value];
+        if (Object.keys(updated[key]).length === 0) delete updated[key];
+      }
+      setEditProdOptionImages(updated);
+    } else {
+      const updated = { ...newProdOptionImages };
+      if (updated[key]) {
+        delete updated[key][value];
+        if (Object.keys(updated[key]).length === 0) delete updated[key];
+      }
+      setNewProdOptionImages(updated);
+    }
+  };
 
   const toggleCurrency = () => {
     setPriceCurrency(prev => prev === 'NGN' ? 'USD' : 'NGN');
@@ -49,46 +124,93 @@ export const ProductsSection = ({
     return '';
   };
 
-  const [newSize, setNewSize] = useState('');
-  const [newColor, setNewColor] = useState('#000000');
-  const [editSize, setEditSize] = useState('');
-  const [editColor, setEditColor] = useState('#000000');
+  const [newOptKey, setNewOptKey] = useState('size');
+  const [newOptValue, setNewOptValue] = useState('');
+  const [editOptKey, setEditOptKey] = useState('size');
+  const [editOptValue, setEditOptValue] = useState('');
 
-  const addSize = (isEdit = false) => {
-    const size = isEdit ? editSize : newSize;
-    if (!size) return;
+  // Price Modifiers Local State
+  const [newModOption, setNewModOption] = useState('size');
+  const [newModValue, setNewModValue] = useState('');
+  const [newModPrice, setNewModPrice] = useState('');
+
+  const [editModOption, setEditModOption] = useState('size');
+  const [editModValue, setEditModValue] = useState('');
+  const [editModPrice, setEditModPrice] = useState('');
+
+  const addPriceModifier = (isEdit = false) => {
+    const option = isEdit ? editModOption : newModOption;
+    const value = isEdit ? editModValue : newModValue;
+    const price = parseFloat(isEdit ? editModPrice : newModPrice);
+
+    if (!option || !value || isNaN(price)) return;
+
     if (isEdit) {
-      setEditProdSizes([...editProdSizes, size]);
-      setEditSize('');
+      const updated = { ...editProdPriceModifiers };
+      if (!updated[option]) updated[option] = {};
+      updated[option][value] = price;
+      setEditProdPriceModifiers(updated);
+      setEditModValue('');
+      setEditModPrice('');
     } else {
-      setNewProdSizes([...newProdSizes, size]);
-      setNewSize('');
+      const updated = { ...newProdPriceModifiers };
+      if (!updated[option]) updated[option] = {};
+      updated[option][value] = price;
+      setNewProdPriceModifiers(updated);
+      setNewModValue('');
+      setNewModPrice('');
     }
   };
 
-  const removeSize = (index: number, isEdit = false) => {
+  const removePriceModifier = (option: string, value: string, isEdit = false) => {
     if (isEdit) {
-      setEditProdSizes(editProdSizes.filter((_: any, i: number) => i !== index));
+      const updated = { ...editProdPriceModifiers };
+      if (updated[option]) {
+        delete updated[option][value];
+        if (Object.keys(updated[option]).length === 0) delete updated[option];
+      }
+      setEditProdPriceModifiers(updated);
     } else {
-      setNewProdSizes(newProdSizes.filter((_: any, i: number) => i !== index));
+      const updated = { ...newProdPriceModifiers };
+      if (updated[option]) {
+        delete updated[option][value];
+        if (Object.keys(updated[option]).length === 0) delete updated[option];
+      }
+      setNewProdPriceModifiers(updated);
     }
   };
 
-  const addColor = (isEdit = false) => {
-    const color = isEdit ? editColor : newColor;
-    if (!color) return;
+  const addOption = (isEdit = false) => {
+    const key = isEdit ? editOptKey.toLowerCase().trim() : newOptKey.toLowerCase().trim();
+    const value = isEdit ? editOptValue.trim() : newOptValue.trim();
+    if (!key || !value) return;
+
     if (isEdit) {
-      setEditProdColors([...editProdColors, color]);
+      const updated = { ...editProdOptions };
+      if (!updated[key]) updated[key] = [];
+      if (!updated[key].includes(value)) updated[key].push(value);
+      setEditProdOptions(updated);
+      setEditOptValue('');
     } else {
-      setNewProdColors([...newProdColors, color]);
+      const updated = { ...newProdOptions };
+      if (!updated[key]) updated[key] = [];
+      if (!updated[key].includes(value)) updated[key].push(value);
+      setNewProdOptions(updated);
+      setNewOptValue('');
     }
   };
 
-  const removeColor = (index: number, isEdit = false) => {
+  const removeOption = (key: string, value: string, isEdit = false) => {
     if (isEdit) {
-      setEditProdColors(editProdColors.filter((_: any, i: number) => i !== index));
+      const updated = { ...editProdOptions };
+      updated[key] = updated[key].filter((v: string) => v !== value);
+      if (updated[key].length === 0) delete updated[key];
+      setEditProdOptions(updated);
     } else {
-      setNewProdColors(newProdColors.filter((_: any, i: number) => i !== index));
+      const updated = { ...newProdOptions };
+      updated[key] = updated[key].filter((v: string) => v !== value);
+      if (updated[key].length === 0) delete updated[key];
+      setNewProdOptions(updated);
     }
   };
 
@@ -217,12 +339,13 @@ export const ProductsSection = ({
                 className="flex-1 bg-white border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:border-[#d35400] transition-colors text-sm min-w-0"
               />
               <label className="bg-[#1a1a1a] hover:bg-[#d35400] text-white px-4 py-2 rounded-lg cursor-pointer flex items-center justify-center transition-all duration-300 whitespace-nowrap text-sm font-medium">
-                {uploadingImage ? '...' : 'Upload'}
+                {uploadingNewImage ? '...' : 'Upload'}
                 <input 
                   type="file" 
                   accept="image/*" 
+                  multiple
                   className="hidden" 
-                  onChange={handleImageUpload}
+                  onChange={handleNewImageUpload}
                 />
               </label>
             </div>
@@ -245,74 +368,247 @@ export const ProductsSection = ({
         <div className="space-y-4 p-4 bg-white rounded-xl border border-black/5">
           <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Product Options (Optional)</h3>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {/* Sizes */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Available Sizes</label>
-              <div className="flex gap-2">
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="space-y-1 flex-1 min-w-[120px]">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Option Name</label>
                 <input
                   type="text"
-                  placeholder="e.g. XL, 42, 500g"
-                  value={newSize}
-                  onChange={(e) => setNewSize(e.target.value)}
-                  className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#d35400]"
+                  placeholder="e.g. size, color, bean, milk"
+                  value={newOptKey}
+                  onChange={(e) => setNewOptKey(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#d35400]"
                 />
-                <button 
-                  type="button"
-                  onClick={() => addSize(false)}
-                  className="bg-[#1a1a1a] text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-[#d35400] transition-colors"
-                >
-                  Add
-                </button>
               </div>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {newProdSizes.map((size: string, idx: number) => (
-                  <span key={idx} className="bg-gray-100 text-gray-700 px-2 py-1 rounded-md text-xs font-medium flex items-center gap-1">
-                    {size}
-                    <button type="button" onClick={() => removeSize(idx, false)} className="text-gray-400 hover:text-red-500">
-                      <Plus size={14} className="rotate-45" />
-                    </button>
-                  </span>
-                ))}
+              <div className="space-y-1 flex-[2] min-w-[150px]">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Option Value</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Large, Red, Arabica, Oat Milk"
+                  value={newOptValue}
+                  onChange={(e) => setNewOptValue(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#d35400]"
+                />
               </div>
+              <button 
+                type="button"
+                onClick={() => addOption(false)}
+                className="bg-[#1a1a1a] text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-[#d35400] transition-colors h-[34px]"
+              >
+                Add Option
+              </button>
             </div>
+            
+            <div className="flex flex-col gap-2 mt-2">
+              {Object.entries(newProdOptions).map(([key, values]: any) => (
+                <div key={key} className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-bold text-gray-700 uppercase">{key}:</span>
+                  {values.map((val: string, idx: number) => (
+                    <span key={idx} className="bg-gray-100 text-gray-700 px-2 py-1 rounded-md text-xs font-medium flex items-center gap-1">
+                      {key === 'color' && val.startsWith('#') && (
+                        <div className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: val }} />
+                      )}
+                      {val}
+                      <button type="button" onClick={() => removeOption(key, val, false)} className="text-gray-400 hover:text-red-500">
+                        <Plus size={14} className="rotate-45" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
 
-            {/* Colors */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Available Colors</label>
-              <div className="flex gap-2 items-center">
-                <input
-                  type="color"
-                  value={newColor}
-                  onChange={(e) => setNewColor(e.target.value)}
-                  className="w-10 h-10 p-1 bg-white border border-gray-200 rounded-lg cursor-pointer"
-                />
-                <input
-                  type="text"
-                  placeholder="#000000"
-                  value={newColor}
-                  onChange={(e) => setNewColor(e.target.value)}
-                  className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:border-[#d35400]"
-                />
-                <button 
-                  type="button"
-                  onClick={() => addColor(false)}
-                  className="bg-[#1a1a1a] text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-[#d35400] transition-colors"
+          {/* Price Modifiers */}
+          <div className="space-y-2 pt-4 border-t border-black/5">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Price Modifiers (Optional)</label>
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="space-y-1 flex-1 min-w-[120px]">
+                <label className="text-[10px] text-gray-400 uppercase font-bold">Option</label>
+                <select 
+                  value={newModOption} 
+                  onChange={(e) => {
+                    setNewModOption(e.target.value);
+                    setNewModValue('');
+                  }}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-[#d35400]"
                 >
-                  Add
-                </button>
+                  <option value="">Select Option</option>
+                  {Object.keys(newProdOptions).map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
               </div>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {newProdColors.map((color: string, idx: number) => (
-                  <span key={idx} className="p-1 bg-gray-100 rounded-md flex items-center gap-2 pr-2">
-                    <div className="w-4 h-4 rounded-full border border-black/10" style={{ backgroundColor: color }} />
-                    <span className="text-[10px] font-mono text-gray-500">{color}</span>
-                    <button type="button" onClick={() => removeColor(idx, false)} className="text-gray-400 hover:text-red-500">
+              <div className="space-y-1 flex-[2] min-w-[150px]">
+                <label className="text-[10px] text-gray-400 uppercase font-bold">Value</label>
+                {newModOption && newProdOptions[newModOption] && newProdOptions[newModOption].length > 0 ? (
+                  <select
+                    value={newModValue}
+                    onChange={(e) => setNewModValue(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-[#d35400]"
+                  >
+                    <option value="">Select Value</option>
+                    {newProdOptions[newModOption].map((v: string) => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                ) : (
+                  <input 
+                    type="text" 
+                    value={newModValue} 
+                    onChange={(e) => setNewModValue(e.target.value)}
+                    placeholder="e.g. Large, #FF0000"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-[#d35400]"
+                  />
+                )}
+              </div>
+              <div className="space-y-1 flex-1 min-w-[100px]">
+                <label className="text-[10px] text-gray-400 uppercase font-bold">Price +</label>
+                <input 
+                  type="number" 
+                  value={newModPrice} 
+                  onChange={(e) => setNewModPrice(e.target.value)}
+                  placeholder="Price"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-[#d35400]"
+                />
+              </div>
+              <button 
+                type="button" 
+                onClick={() => addPriceModifier(false)}
+                className="bg-[#1a1a1a] text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-[#d35400] transition-colors h-[34px]"
+              >
+                Add Modifier
+              </button>
+            </div>
+            
+            <div className="flex flex-wrap gap-2 mt-2">
+              {Object.entries(newProdPriceModifiers).map(([opt, values]: any) => (
+                Object.entries(values).map(([val, price]: any) => (
+                  <span key={`${opt}-${val}`} className="bg-orange-50 text-[#d35400] border border-orange-100 px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-2">
+                    <span className="uppercase opacity-60">{opt}:</span> {val} (+{formatPrice(price, currency, exchangeRate)})
+                    <button type="button" onClick={() => removePriceModifier(opt, val, false)} className="text-orange-300 hover:text-red-500">
                       <Plus size={14} className="rotate-45" />
                     </button>
                   </span>
-                ))}
+                ))
+              ))}
+            </div>
+          </div>
+
+          {/* Gallery Images */}
+          <div className="space-y-2 pt-4 border-t border-black/5">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Gallery Images (Optional)</label>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                placeholder="Image URL"
+                value={newGalleryUrl}
+                onChange={(e) => setNewGalleryUrl(e.target.value)}
+                className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#d35400]"
+              />
+              <label className="bg-[#1a1a1a] hover:bg-[#d35400] text-white px-3 py-1.5 rounded-lg cursor-pointer flex items-center justify-center transition-all text-xs font-bold whitespace-nowrap">
+                {uploadingNewImage ? '...' : 'Upload'}
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={(e) => handleNewImageUpload(e)}
+                />
+              </label>
+              <button 
+                type="button"
+                onClick={() => addGalleryImage(false)}
+                className="bg-[#1a1a1a] text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-[#d35400] transition-colors"
+              >
+                Add
+              </button>
+            </div>
+            <div className="flex flex-nowrap overflow-x-auto gap-2 mt-2 pb-2">
+              {newProdGallery.map((url: string, idx: number) => (
+                <div key={idx} className="relative group flex-shrink-0">
+                  <img src={url} alt="Gallery" className="w-20 h-20 object-cover rounded-lg border border-black/5" />
+                  <button 
+                    type="button"
+                    onClick={() => removeGalleryImage(idx, false)}
+                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Plus size={10} className="rotate-45" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Option Images */}
+          <div className="space-y-2 pt-4 border-t border-black/5">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Option-Specific Images (Optional)</label>
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="space-y-1 flex-1 min-w-[100px]">
+                <label className="text-[10px] text-gray-400 uppercase font-bold">Option</label>
+                <select 
+                  value={newOptImgKey} 
+                  onChange={(e) => setNewOptImgKey(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-[#d35400]"
+                >
+                  <option value="">Select Option</option>
+                  {Object.keys(newProdOptions).map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
               </div>
+              <div className="space-y-1 flex-1 min-w-[100px]">
+                <label className="text-[10px] text-gray-400 uppercase font-bold">Value</label>
+                <select
+                  value={newOptImgValue}
+                  onChange={(e) => setNewOptImgValue(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-[#d35400]"
+                >
+                  <option value="">Select Value</option>
+                  {newOptImgKey && newProdOptions[newOptImgKey]?.map((v: string) => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1 flex-[2] min-w-[150px]">
+                <label className="text-[10px] text-gray-400 uppercase font-bold">Image URL</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="url" 
+                    value={newOptImgUrl} 
+                    onChange={(e) => setNewOptImgUrl(e.target.value)}
+                    placeholder="Image URL"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-[#d35400]"
+                  />
+                  <label className="bg-[#1a1a1a] hover:bg-[#d35400] text-white px-3 py-1.5 rounded-lg cursor-pointer flex items-center justify-center transition-all text-xs font-bold whitespace-nowrap">
+                    {uploadingNewImage ? '...' : 'Upload'}
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={(e) => handleNewImageUpload(e)}
+                    />
+                  </label>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => addOptionImage(false)}
+                className="bg-[#1a1a1a] text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-[#d35400] transition-colors h-[34px]"
+              >
+                Add
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {Object.entries(newProdOptionImages).map(([opt, values]: any) => (
+                Object.entries(values).map(([val, url]: any) => (
+                  <div key={`${opt}-${val}`} className="flex items-center gap-2 bg-gray-50 border border-black/5 p-1 rounded-lg">
+                    <img src={url} alt={`${opt}-${val}`} className="w-8 h-8 object-cover rounded" />
+                    <div className="flex flex-col">
+                      <span className="text-[8px] font-bold text-gray-400 uppercase">{opt}</span>
+                      <span className="text-[10px] font-medium text-gray-700">{val}</span>
+                    </div>
+                    <button type="button" onClick={() => removeOptionImage(opt, val, false)} className="text-gray-400 hover:text-red-500 ml-1">
+                      <Plus size={12} className="rotate-45" />
+                    </button>
+                  </div>
+                ))
+              ))}
             </div>
           </div>
         </div>
@@ -487,49 +783,218 @@ export const ProductsSection = ({
                     {/* Edit Product Options */}
                     <div className="space-y-3 p-3 bg-white rounded-xl border border-black/5">
                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Options</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* Sizes */}
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-gray-500 uppercase">Sizes</label>
-                          <div className="flex gap-1">
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap gap-1 items-end">
+                          <div className="space-y-1 flex-1 min-w-[80px]">
+                            <label className="text-[8px] font-bold text-gray-500 uppercase">Option Name</label>
                             <input
                               type="text"
-                              value={editSize}
-                              onChange={(e) => setEditSize(e.target.value)}
-                              className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-[#d35400]"
-                              placeholder="Add size"
+                              value={editOptKey}
+                              onChange={(e) => setEditOptKey(e.target.value)}
+                              className="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1 text-[10px] focus:outline-none focus:border-[#d35400]"
+                              placeholder="e.g. size"
                             />
-                            <button type="button" onClick={() => addSize(true)} className="bg-[#1a1a1a] text-white px-2 py-1 rounded-lg text-[10px] font-bold">Add</button>
                           </div>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {editProdSizes.map((size: string, idx: number) => (
-                              <span key={idx} className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px] font-medium flex items-center gap-1">
-                                {size}
-                                <button type="button" onClick={() => removeSize(idx, true)} className="text-gray-400 hover:text-red-500"><Plus size={10} className="rotate-45" /></button>
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        {/* Colors */}
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-gray-500 uppercase">Colors</label>
-                          <div className="flex gap-1 items-center">
+                          <div className="space-y-1 flex-[2] min-w-[100px]">
+                            <label className="text-[8px] font-bold text-gray-500 uppercase">Option Value</label>
                             <input
-                              type="color"
-                              value={editColor}
-                              onChange={(e) => setEditColor(e.target.value)}
-                              className="w-6 h-6 p-0.5 bg-white border border-gray-200 rounded cursor-pointer"
+                              type="text"
+                              value={editOptValue}
+                              onChange={(e) => setEditOptValue(e.target.value)}
+                              className="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1 text-[10px] focus:outline-none focus:border-[#d35400]"
+                              placeholder="e.g. Large"
                             />
-                            <button type="button" onClick={() => addColor(true)} className="bg-[#1a1a1a] text-white px-2 py-1 rounded-lg text-[10px] font-bold">Add</button>
                           </div>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {editProdColors.map((color: string, idx: number) => (
-                              <span key={idx} className="p-0.5 bg-gray-100 rounded flex items-center gap-1 pr-1">
-                                <div className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: color }} />
-                                <button type="button" onClick={() => removeColor(idx, true)} className="text-gray-400 hover:text-red-500"><Plus size={10} className="rotate-45" /></button>
+                          <button type="button" onClick={() => addOption(true)} className="bg-[#1a1a1a] text-white px-3 py-1 rounded text-[10px] font-bold h-[26px]">Add</button>
+                        </div>
+                        <div className="flex flex-col gap-1 mt-1">
+                          {Object.entries(editProdOptions).map(([key, values]: any) => (
+                            <div key={key} className="flex flex-wrap items-center gap-1">
+                              <span className="text-[10px] font-bold text-gray-600 uppercase">{key}:</span>
+                              {values.map((val: string, idx: number) => (
+                                <span key={idx} className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px] font-medium flex items-center gap-1">
+                                  {key === 'color' && val.startsWith('#') && (
+                                    <div className="w-2 h-2 rounded-full border border-black/10" style={{ backgroundColor: val }} />
+                                  )}
+                                  {val}
+                                  <button type="button" onClick={() => removeOption(key, val, true)} className="text-gray-400 hover:text-red-500"><Plus size={10} className="rotate-45" /></button>
+                                </span>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Edit Price Modifiers */}
+                      <div className="space-y-2 pt-3 border-t border-black/5">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Price Modifiers</label>
+                        <div className="flex flex-wrap gap-1 items-end">
+                          <div className="space-y-1 flex-1 min-w-[80px]">
+                            <label className="text-[8px] text-gray-400 uppercase font-bold">Option</label>
+                            <select 
+                              value={editModOption} 
+                              onChange={(e) => {
+                                setEditModOption(e.target.value);
+                                setEditModValue('');
+                              }}
+                              className="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1 text-[10px] focus:outline-none focus:border-[#d35400]"
+                            >
+                              <option value="">Select Option</option>
+                              {Object.keys(editProdOptions).map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="space-y-1 flex-[2] min-w-[100px]">
+                            <label className="text-[8px] text-gray-400 uppercase font-bold">Value</label>
+                            {editModOption && editProdOptions[editModOption] && editProdOptions[editModOption].length > 0 ? (
+                              <select
+                                value={editModValue}
+                                onChange={(e) => setEditModValue(e.target.value)}
+                                className="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1 text-[10px] focus:outline-none focus:border-[#d35400]"
+                              >
+                                <option value="">Select Value</option>
+                                {editProdOptions[editModOption].map((v: string) => <option key={v} value={v}>{v}</option>)}
+                              </select>
+                            ) : (
+                              <input 
+                                type="text" 
+                                value={editModValue} 
+                                onChange={(e) => setEditModValue(e.target.value)}
+                                placeholder="Value"
+                                className="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1 text-[10px] focus:outline-none focus:border-[#d35400]"
+                              />
+                            )}
+                          </div>
+                          <div className="space-y-1 flex-1 min-w-[60px]">
+                            <label className="text-[8px] text-gray-400 uppercase font-bold">Price +</label>
+                            <input 
+                              type="number" 
+                              value={editModPrice} 
+                              onChange={(e) => setEditModPrice(e.target.value)}
+                              placeholder="Price"
+                              className="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1 text-[10px] focus:outline-none focus:border-[#d35400]"
+                            />
+                          </div>
+                          <button 
+                            type="button" 
+                            onClick={() => addPriceModifier(true)}
+                            className="bg-[#1a1a1a] text-white px-3 py-1 rounded text-[10px] font-bold hover:bg-[#d35400] transition-colors h-[26px]"
+                          >
+                            Add
+                          </button>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {Object.entries(editProdPriceModifiers).map(([opt, values]: any) => (
+                            Object.entries(values).map(([val, price]: any) => (
+                              <span key={`${opt}-${val}`} className="bg-orange-50 text-[#d35400] border border-orange-100 px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1">
+                                <span className="uppercase opacity-60">{opt}:</span> {val} (+{formatPrice(price, currency, exchangeRate)})
+                                <button type="button" onClick={() => removePriceModifier(opt, val, true)} className="text-orange-300 hover:text-red-500">
+                                  <Plus size={10} className="rotate-45" />
+                                </button>
                               </span>
-                            ))}
+                            ))
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Edit Gallery Images */}
+                      <div className="space-y-2 pt-3 border-t border-black/5">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Gallery Images</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="url"
+                            placeholder="Image URL"
+                            value={editGalleryUrl}
+                            onChange={(e) => setEditGalleryUrl(e.target.value)}
+                            className="flex-1 bg-gray-50 border border-gray-200 rounded px-2 py-1 text-[10px] focus:outline-none focus:border-[#d35400]"
+                          />
+                          <button 
+                            type="button"
+                            onClick={() => addGalleryImage(true)}
+                            className="bg-[#1a1a1a] text-white px-3 py-1 rounded text-[10px] font-bold"
+                          >
+                            Add
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {editProdGallery.map((url: string, idx: number) => (
+                            <div key={idx} className="relative group">
+                              <img src={url} alt="Gallery" className="w-10 h-10 object-cover rounded border border-black/5" />
+                              <button 
+                                type="button"
+                                onClick={() => removeGalleryImage(idx, true)}
+                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <Plus size={8} className="rotate-45" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Edit Option Images */}
+                      <div className="space-y-2 pt-3 border-t border-black/5">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Option-Specific Images</label>
+                        <div className="flex flex-wrap gap-1 items-end">
+                          <div className="space-y-1 flex-1 min-w-[80px]">
+                            <label className="text-[8px] text-gray-400 uppercase font-bold">Option</label>
+                            <select 
+                              value={editOptImgKey} 
+                              onChange={(e) => setEditOptImgKey(e.target.value)}
+                              className="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1 text-[10px] focus:outline-none focus:border-[#d35400]"
+                            >
+                              <option value="">Select Option</option>
+                              {Object.keys(editProdOptions).map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
                           </div>
+                          <div className="space-y-1 flex-1 min-w-[80px]">
+                            <label className="text-[8px] text-gray-400 uppercase font-bold">Value</label>
+                            <select
+                              value={editOptImgValue}
+                              onChange={(e) => setEditOptImgValue(e.target.value)}
+                              className="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1 text-[10px] focus:outline-none focus:border-[#d35400]"
+                            >
+                              <option value="">Select Value</option>
+                              {editOptImgKey && editProdOptions[editOptImgKey]?.map((v: string) => <option key={v} value={v}>{v}</option>)}
+                            </select>
+                          </div>
+                          <div className="space-y-1 flex-[2] min-w-[100px]">
+                            <label className="text-[8px] text-gray-400 uppercase font-bold">Image URL</label>
+                            <input 
+                              type="url" 
+                              value={editOptImgUrl} 
+                              onChange={(e) => setEditOptImgUrl(e.target.value)}
+                              placeholder="Image URL"
+                              className="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1 text-[10px] focus:outline-none focus:border-[#d35400]"
+                            />
+                          </div>
+                          <button 
+                            type="button" 
+                            onClick={() => addOptionImage(true)}
+                            className="bg-[#1a1a1a] text-white px-3 py-1 rounded text-[10px] font-bold h-[26px]"
+                          >
+                            Add
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {Object.entries(editProdOptionImages).map(([opt, values]: any) => (
+                            Object.entries(values).map(([val, url]: any) => (
+                              <div key={`${opt}-${val}`} className="flex items-center gap-1 bg-gray-50 border border-black/5 p-1 rounded">
+                                <img src={url} alt={`${opt}-${val}`} className="w-6 h-6 object-cover rounded" />
+                                <div className="flex flex-col">
+                                  <span className="text-[7px] font-bold text-gray-400 uppercase">{opt}</span>
+                                  <span className="text-[8px] font-medium text-gray-700">{val}</span>
+                                </div>
+                                <button type="button" onClick={() => removeOptionImage(opt, val, true)} className="text-gray-400 hover:text-red-500 ml-1">
+                                  <Plus size={10} className="rotate-45" />
+                                </button>
+                              </div>
+                            ))
+                          ))}
                         </div>
                       </div>
                     </div>

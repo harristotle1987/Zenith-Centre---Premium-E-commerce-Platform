@@ -21,6 +21,7 @@ import { CurrencyToggle } from './components/CurrencyToggle';
 
 export default function App() {
   const [activeDepartment, setActiveDepartment] = useState('All');
+  const [itemsToShow, setItemsToShow] = useState(100);
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
@@ -111,13 +112,24 @@ export default function App() {
       const customizationString = JSON.stringify(customizations);
       const cartItemId = `${product.id}-${customizationString}`;
       
+      // Calculate adjusted price based on options
+      let adjustedPrice = Number(product.price);
+      if (product.optionPriceModifiers) {
+        Object.entries(customizations).forEach(([key, value]) => {
+          const modifier = product.optionPriceModifiers?.[key]?.[value as string];
+          if (modifier) {
+            adjustedPrice += modifier;
+          }
+        });
+      }
+      
       const existing = prev.find(item => item.cartItemId === cartItemId);
       if (existing) {
         toast.success(`Updated ${product.name} in cart`);
         return prev.map(item => item.cartItemId === cartItemId ? { ...item, quantity: item.quantity + quantity } : item);
       }
       toast.success(`Added ${product.name} to cart`);
-      return [...prev, { ...product, cartItemId, quantity, customizations }];
+      return [...prev, { ...product, cartItemId, quantity, customizations, price: adjustedPrice }];
     });
   };
 
@@ -421,7 +433,7 @@ export default function App() {
             <button onClick={handleLogout} className="text-xs font-bold text-red-500 uppercase tracking-widest hover:underline">Logout</button>
           </div>
         </div>
-        <AdminDashboard user={user} currency={currency} onCurrencyChange={handleCurrencyChange} onUpdateUser={(updatedUser) => setUser(updatedUser)} />
+        <AdminDashboard user={user} currency={currency} onCurrencyChange={handleCurrencyChange} onUpdateUser={(updatedUser) => setUser(updatedUser)} onLogout={handleLogout} />
       </div>
     );
   }
@@ -468,27 +480,76 @@ export default function App() {
         {activeDepartment === 'All' && !searchQuery ? (
           <div className="py-16 bg-[#fdfbf7] space-y-20">
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center justify-between mb-8 border-b border-black/5 pb-4">
-                <h2 className="text-2xl font-serif font-bold text-[#1a1a1a] uppercase tracking-tight">Featured Products</h2>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 border-b border-black/5 pb-4 gap-4">
+                <h2 className="text-2xl font-serif font-bold text-[#1a1a1a] uppercase tracking-tight">Our Products</h2>
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Dept:</span>
+                    <select 
+                      value={activeDepartment}
+                      onChange={(e) => setActiveDepartment(e.target.value)}
+                      className="bg-white border border-black/10 rounded-lg px-3 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#d35400]/20"
+                    >
+                      {departments.map(dept => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Show:</span>
+                    <select 
+                      value={itemsToShow}
+                      onChange={(e) => setItemsToShow(Number(e.target.value))}
+                      className="bg-white border border-black/10 rounded-lg px-3 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#d35400]/20"
+                    >
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                      <option value={200}>200</option>
+                    </select>
+                  </div>
+                  <span className="text-sm text-gray-500 font-medium uppercase tracking-widest">
+                    Showing {Math.min(products.length, itemsToShow)} of {products.length} Products
+                  </span>
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
                 {products
-                  .sort(() => 0.5 - Math.random())
-                  .slice(0, 6)
+                  .sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }))
+                  .slice(0, itemsToShow)
                   .map(product => (
                     <ProductCard 
                       key={product.id} 
                       product={product} 
-                      onAddToCart={() => addToCart(product)}
+                      onAddToCart={() => {
+                        const hasOptions = (product.options && Object.keys(product.options).length > 0) || 
+                                          product.department === 'Coffee' || 
+                                          product.department === 'Tea & Other';
+                        if (hasOptions) {
+                          setSelectedProduct(product);
+                        } else {
+                          addToCart(product);
+                        }
+                      }}
                       onViewDetails={(p) => setSelectedProduct(p)}
                       currency={currency}
                     />
                   ))}
               </div>
+              {products.length > itemsToShow && (
+                <div className="mt-12 text-center">
+                  <button 
+                    onClick={() => setItemsToShow(prev => prev + 50)}
+                    className="px-8 py-4 bg-[#d35400] text-white font-bold uppercase tracking-widest rounded-full hover:bg-[#b34700] transition-all shadow-lg shadow-[#d35400]/20"
+                  >
+                    Load More Products
+                  </button>
+                </div>
+              )}
             </section>
 
             {departments.filter(d => d !== 'All').map(dept => {
-              const deptProducts = products.filter(p => p.department === dept).slice(0, 3);
+              const deptProducts = products.filter(p => p.department === dept).slice(0, 10);
               if (deptProducts.length === 0) return null;
               
               return (
@@ -502,12 +563,21 @@ export default function App() {
                       View All
                     </button>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
                     {deptProducts.map(product => (
                       <ProductCard 
                         key={product.id} 
                         product={product} 
-                        onAddToCart={() => addToCart(product)}
+                        onAddToCart={() => {
+                          const hasOptions = (product.options && Object.keys(product.options).length > 0) || 
+                                            product.department === 'Coffee' || 
+                                            product.department === 'Tea & Other';
+                          if (hasOptions) {
+                            setSelectedProduct(product);
+                          } else {
+                            addToCart(product);
+                          }
+                        }}
                         onViewDetails={(p) => setSelectedProduct(p)}
                         currency={currency}
                       />
@@ -535,12 +605,21 @@ export default function App() {
               </div>
               <div className="flex flex-col gap-12">
                 <main className="flex-1">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
                     {filteredProducts.map(product => (
                       <ProductCard 
                         key={product.id} 
                         product={product} 
-                        onAddToCart={() => addToCart(product)}
+                        onAddToCart={() => {
+                          const hasOptions = (product.options && Object.keys(product.options).length > 0) || 
+                                            product.department === 'Coffee' || 
+                                            product.department === 'Tea & Other';
+                          if (hasOptions) {
+                            setSelectedProduct(product);
+                          } else {
+                            addToCart(product);
+                          }
+                        }}
                         onViewDetails={(p) => setSelectedProduct(p)}
                         currency={currency}
                       />
@@ -570,6 +649,7 @@ export default function App() {
         onCheckout={clearCart}
         user={user}
         currency={currency}
+        onLogout={handleLogout}
       />
 
       <ProductModal
