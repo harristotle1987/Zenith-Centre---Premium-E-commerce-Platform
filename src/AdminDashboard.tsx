@@ -418,7 +418,8 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange,
     });
 
     socket.on('deliveryStatusUpdate', ({ orderId, deliveryStatus }) => {
-      setPendingOrders(prev => prev.map(o => o.id === orderId ? { ...o, delivery_status: deliveryStatus } : o));
+      setPendingOrders(prev => prev.map(o => Number(o.id) === Number(orderId) ? { ...o, delivery_status: deliveryStatus } : o));
+      setTransactions(prev => prev.map(t => Number(t.id) === Number(orderId) ? { ...t, delivery_status: deliveryStatus } : t));
     });
 
     socket.on('orderStatusUpdate', () => {

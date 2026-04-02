@@ -70,8 +70,8 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
     });
 
     socket.on('deliveryStatusUpdate', ({ orderId, deliveryStatus }) => {
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, delivery_status: deliveryStatus } : o));
-      if (selectedOrder?.id === orderId) {
+      setOrders(prev => prev.map(o => Number(o.id) === Number(orderId) ? { ...o, delivery_status: deliveryStatus } : o));
+      if (selectedOrder && Number(selectedOrder.id) === Number(orderId)) {
         setSelectedOrder(prev => prev ? { ...prev, delivery_status: deliveryStatus } : null);
       }
     });
