@@ -385,7 +385,7 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange,
     }
     fetchData();
 
-    const socket = io(getApiUrl(''));
+    const socket = io();
     
     socket.on('newOrder', () => {
       fetchData(true);
@@ -429,6 +429,17 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange,
     return () => {
       socket.disconnect();
     };
+  }, [user]);
+
+  // Polling fallback for orders if socket fails
+  useEffect(() => {
+    if (!user) return;
+    
+    const interval = setInterval(() => {
+      fetchData(true);
+    }, 60000); // Poll every 60 seconds
+
+    return () => clearInterval(interval);
   }, [user]);
 
   const showMessage = (msg: string, type: 'success' | 'error' = 'success') => {
@@ -821,6 +832,9 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange,
       });
 
       if (res.ok) {
+        // Update local state immediately for better UX and fallback if socket fails
+        setPendingOrders(prev => prev.map(o => Number(o.id) === Number(orderId) ? { ...o, delivery_status: status } : o));
+        setTransactions(prev => prev.map(t => Number(t.id) === Number(orderId) ? { ...t, delivery_status: status } : t));
         toast.success(`Delivery status updated to ${status}`);
       } else {
         const error = await res.json();

@@ -2980,7 +2980,7 @@ io.on('connection', (socket) => {
       }
 
       await sql`
-        UPDATE orders SET delivery_status = ${deliveryStatus} WHERE id = ${id}
+        UPDATE orders SET delivery_status = ${deliveryStatus} WHERE id = ${Number(id)}
       `;
 
       // Emit socket event for delivery status update

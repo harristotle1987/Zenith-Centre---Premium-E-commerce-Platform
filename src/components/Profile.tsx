@@ -55,7 +55,7 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
   useEffect(() => {
     fetchOrders();
 
-    const socket = io(getApiUrl(''));
+    const socket = io();
     
     socket.on('orderStatusUpdate', () => {
       fetchOrders();
@@ -84,6 +84,27 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
       socket.disconnect();
     };
   }, [isAdmin]);
+
+  // Polling fallback for delivery status if socket fails
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    const hasActiveDelivery = orders.some(o => 
+      o.order_type === 'delivery' && 
+      o.status !== 'COMPLETED' && 
+      o.status !== 'CANCELLED'
+    );
+
+    if (hasActiveDelivery) {
+      interval = setInterval(() => {
+        fetchOrders();
+      }, 30000); // Poll every 30 seconds
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [orders]);
 
   const activeDeliveryOrder = orders.find(o => 
     o.order_type === 'delivery' && 
