@@ -2293,6 +2293,29 @@ io.on('connection', (socket) => {
     }
   }
 
+  async function restoreStock(orderId: number | string) {
+    try {
+      // Check if actually reduced
+      const order = await sql`SELECT stock_reduced FROM orders WHERE id = ${orderId}`;
+      if (order.length === 0 || !order[0].stock_reduced) return;
+
+      const items = await sql`SELECT product_id, quantity FROM order_items WHERE order_id = ${orderId}`;
+      
+      for (const item of items) {
+        await sql`
+          UPDATE products 
+          SET stock_quantity = stock_quantity + ${item.quantity}
+          WHERE id = ${item.product_id}
+        `;
+      }
+
+      await sql`UPDATE orders SET stock_reduced = FALSE WHERE id = ${orderId}`;
+      console.log(`Stock restored for order ${orderId}`);
+    } catch (error) {
+      console.error(`Failed to restore stock for order ${orderId}:`, error);
+    }
+  }
+
   async function ensureDatabaseSchema() {
     try {
       
@@ -3030,8 +3053,10 @@ io.on('connection', (socket) => {
         UPDATE orders SET status = ${status} WHERE id = ${id}
       `;
 
-      if (status === 'PAID' || status === 'COMPLETED') {
+      if (['PAID', 'COMPLETED', 'IN_PROGRESS', 'READY'].includes(status)) {
         await reduceStock(id);
+      } else if (status === 'CANCELLED') {
+        await restoreStock(id);
       }
 
       // Emit socket event for order status update
@@ -3073,11 +3098,8 @@ io.on('connection', (socket) => {
         WHERE id = ${id}
       `;
 
-      // Reduce stock for the items in the order
-      const items = await sql`SELECT product_id, quantity FROM order_items WHERE order_id = ${id}`;
-      for (const item of items) {
-        await sql`UPDATE products SET stock_quantity = stock_quantity - ${item.quantity} WHERE id = ${item.product_id}`;
-      }
+      // Use helper to reduce stock (handles duplicate prevention)
+      await reduceStock(id);
 
       await logActivity(userId, 'Completed Order', { order_id: id });
 
@@ -3102,11 +3124,10 @@ io.on('connection', (socket) => {
       // Delete transactions first due to foreign key constraint
       await sql`DELETE FROM transactions WHERE order_id = ${id}`;
       
-      // Restore stock for the items in the order
-      const items = await sql`SELECT product_id, quantity FROM order_items WHERE order_id = ${id}`;
-      for (const item of items) {
-        await sql`UPDATE products SET stock_quantity = stock_quantity + ${item.quantity} WHERE id = ${item.product_id}`;
-      }
+      // Restore stock correctly using the flag
+      await restoreStock(id);
+
+      // order_items will be deleted automatically due to ON DELETE CASCADE
 
       // order_items will be deleted automatically due to ON DELETE CASCADE
       await sql`DELETE FROM orders WHERE id = ${id}`;
