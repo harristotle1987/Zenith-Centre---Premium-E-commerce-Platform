@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ShoppingCart, Star, ShieldCheck, Truck, ArrowLeft, MessageSquare, Plus, Minus } from 'lucide-react';
+import { X, ShoppingCart, Star, ShieldCheck, Truck, ArrowLeft, Plus, Minus } from 'lucide-react';
 import { Product } from '../constants/products';
 import { Currency, formatPrice } from '../utils/currency';
 import { Feedback } from './Feedback';
@@ -110,95 +110,63 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, on
               <X size={20} className="hidden md:block" />
             </button>
 
-          {/* Image Section */}
-          <div className="w-full md:w-1/2 flex flex-col">
-            <div className="h-64 md:h-[500px] relative">
-              <img
-                src={currentImage || product.image}
-                alt={product.name}
-                className="w-full h-full object-cover transition-all duration-500"
-                referrerPolicy="no-referrer"
-              />
-              {product.discountPercentage && (
-                <div className="absolute top-0 left-0 h-full w-12 flex items-center justify-center bg-red-600/90 backdrop-blur-sm z-10">
-                  <span className="text-white text-base font-black uppercase tracking-tighter [writing-mode:vertical-lr] rotate-180">
-                    SAVE {product.discountPercentage}% OFF
-                  </span>
+          {/* Image Gallery - Scrollable Pane showing ALL images */}
+          <div className="w-full md:w-[55%] h-[35vh] md:h-[80vh] overflow-y-auto custom-scrollbar bg-gray-50/50">
+            <div className="flex flex-col space-y-px">
+              {allImages.map((img, idx) => (
+                <div key={idx} className="w-full aspect-[4/3] md:aspect-[4/5] relative bg-white overflow-hidden">
+                  <img
+                    src={img}
+                    alt={`${product.name} - view ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                  {idx === 0 && product.discountPercentage && (
+                    <div className="absolute top-0 left-0 h-full w-8 md:w-10 flex items-center justify-center bg-red-600/90 backdrop-blur-sm z-10">
+                      <span className="text-white text-[11px] md:text-[13px] font-black uppercase tracking-tighter [writing-mode:vertical-lr] rotate-180">
+                        SAVE {product.discountPercentage}% OFF
+                      </span>
+                    </div>
+                  )}
                 </div>
-              )}
-              <div className="absolute bottom-4 left-4">
-                <span className="px-3 py-1 bg-white/90 backdrop-blur-md text-[#d35400] text-xs font-bold rounded-full shadow-sm uppercase tracking-wider">
-                  {product.department}
-                </span>
-              </div>
+              ))}
             </div>
-
-            {/* Thumbnail Gallery */}
-            {allImages.length > 1 && (
-              <div className="flex gap-2 p-4 overflow-x-auto bg-gray-50 scrollbar-hide">
-                {allImages.map((img, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setCurrentImage(img)}
-                    className={`flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${
-                      currentImage === img ? 'border-[#d35400] scale-105 shadow-md' : 'border-transparent opacity-60 hover:opacity-100'
-                    }`}
-                  >
-                    <img src={img} alt={`Thumbnail ${idx}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
-          {/* Content Section */}
-          <div className="w-full md:w-1/2 p-8 flex flex-col overflow-y-auto">
+          {/* Content Section - Sticky on desktop */}
+          <div className="w-full md:w-[45%] p-5 md:p-10 flex flex-col h-[65vh] md:h-[80vh] overflow-y-auto custom-scrollbar bg-white">
             <div className="flex-1">
-              <div className="flex items-center gap-1 mb-2">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} size={14} className="fill-yellow-400 text-yellow-400" />
-                ))}
-                <span className="text-xs text-gray-500 ml-2">(4.8 / 5.0)</span>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <div className="flex">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} size={10} className="fill-yellow-400 text-yellow-400" />
+                  ))}
+                </div>
+                <span className="text-[9px] text-gray-400 font-sans uppercase tracking-[0.2em] font-bold">Premium Quality</span>
               </div>
               
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">{product.name}</h2>
-              <p className="text-2xl font-bold text-[#d35400] mb-6">{formatPrice(currentPrice, currency)}</p>
+              <h2 className="text-2xl md:text-3xl font-serif font-medium text-gray-900 mb-1 leading-[1.1] tracking-tight italic">
+                {product.name}
+              </h2>
               
-              <div className="space-y-4 mb-8">
-                <p className="text-gray-600 leading-relaxed">
-                  {product.description || `Experience the finest quality with our ${product.name}. Sourced directly from premium producers, this selection represents the pinnacle of taste and freshness in our ${product.department} department.`}
+              <div className="flex items-baseline gap-3 mb-4">
+                <p className="text-xl md:text-2xl font-sans font-semibold text-[#d35400] tracking-tighter">
+                  {formatPrice(currentPrice, currency)}
                 </p>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <ShieldCheck size={18} className="text-green-500" />
-                    <span>Quality Guaranteed</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Truck size={18} className="text-blue-500" />
-                    <span>Fast Delivery</span>
-                  </div>
+                <div className="px-2 py-0.5 bg-[#d35400]/5 text-[#d35400] text-[8px] md:text-[9px] font-bold rounded-sm uppercase tracking-widest border border-[#d35400]/10">
+                  {product.department}
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 mb-6">
-                <div className="flex-1">
-                  <p className="text-xs font-bold text-gray-400 uppercase mb-1">Availability</p>
-                  <p className={`text-sm font-medium ${product.stock && product.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {product.stock && product.stock > 0 ? `${product.stock} units in stock` : 'Out of Stock'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Customizations */}
-              <div className="space-y-4 mb-8">
+              {/* Customizations - MOVED UP */}
+              <div className="space-y-5 mb-8 pt-4 border-t border-black/5">
                 {product.options && Object.keys(product.options).length > 0 ? (
                   Object.entries(product.options).map(([key, values]) => (
                     <div key={key}>
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-bold text-gray-400 uppercase">{key}</p>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-[8px] md:text-[9px] font-bold text-gray-400 uppercase tracking-[0.2em]">{key}</p>
                         {showOptionErrors && !customizations[key] && (
-                          <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest animate-pulse">Required</span>
+                          <span className="text-[8px] font-bold text-red-500 uppercase tracking-widest animate-pulse font-sans">Selection Required</span>
                         )}
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -211,27 +179,27 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, on
                             <button
                               key={value}
                               onClick={() => handleCustomizationChange(key, value)}
-                              className={`rounded-xl transition-all flex items-center justify-center gap-2 ${
+                              className={`rounded-lg transition-all flex items-center justify-center gap-1.5 border ${
                                 isColor && isValidHex
-                                  ? `w-10 h-10 border-2 ${customizations[key] === value ? 'border-[#d35400] scale-110 shadow-md' : (showOptionErrors && !customizations[key] ? 'border-red-200' : 'border-transparent hover:scale-105')}`
-                                  : `px-4 py-2 text-sm font-bold ${
+                                  ? `w-7 h-7 md:w-8 md:h-8 ${customizations[key] === value ? 'border-[#d35400] ring-2 ring-[#d35400]/20 scale-110' : (showOptionErrors && !customizations[key] ? 'border-red-200' : 'border-transparent hover:scale-105')}`
+                                  : `px-3 md:px-4 py-1.5 md:py-2 text-[9px] md:text-[10px] font-bold tracking-widest uppercase ${
                                       customizations[key] === value 
-                                        ? 'bg-[#1a1a1a] text-white' 
-                                        : (showOptionErrors && !customizations[key] ? 'bg-red-50 text-red-400 border border-red-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')
+                                        ? 'bg-[#1a1a1a] text-white border-[#1a1a1a] shadow-lg' 
+                                        : (showOptionErrors && !customizations[key] ? 'bg-red-50 text-red-400 border-red-100' : 'bg-white text-gray-500 border-gray-100 hover:border-gray-300')
                                     }`
                               }`}
                               title={value}
                             >
                               {isColor && isValidHex ? (
                                 <div 
-                                  className="w-full h-full rounded-lg shadow-inner" 
+                                  className="w-full h-full rounded shadow-inner" 
                                   style={{ backgroundColor: value }} 
                                 />
                               ) : (
                                 <div className="flex flex-col items-center">
                                   <span>{value}</span>
                                   {modifier && modifier !== 0 && (
-                                    <span className={`text-[10px] ${customizations[key] === value ? 'text-white/60' : 'text-[#d35400]'}`}>
+                                    <span className={`text-[7px] ${customizations[key] === value ? 'text-white/60' : 'text-[#d35400]'}`}>
                                       {modifier > 0 ? `+${formatPrice(modifier, currency)}` : formatPrice(modifier, currency)}
                                     </span>
                                   )}
@@ -247,10 +215,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, on
                   (product.department === 'Coffee' || product.department === 'Tea & Other') ? (
                     <>
                       <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-xs font-bold text-gray-400 uppercase">Size</p>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <p className="text-[8px] md:text-[9px] font-bold text-gray-400 uppercase tracking-widest">Select Size</p>
                           {showOptionErrors && !customizations.size && (
-                            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest animate-pulse">Required</span>
+                            <span className="text-[8px] font-bold text-red-500 uppercase tracking-widest animate-pulse font-sans">Selection Required</span>
                           )}
                         </div>
                         <div className="flex gap-2">
@@ -258,10 +226,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, on
                             <button
                               key={size}
                               onClick={() => handleCustomizationChange('size', size)}
-                              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-[9px] md:text-[10px] font-bold transition-all border tracking-widest uppercase ${
                                 customizations.size === size 
-                                  ? 'bg-[#1a1a1a] text-white' 
-                                  : (showOptionErrors && !customizations.size ? 'bg-red-50 text-red-400 border border-red-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')
+                                  ? 'bg-[#1a1a1a] text-white border-[#1a1a1a] shadow-lg' 
+                                  : (showOptionErrors && !customizations.size ? 'bg-red-50 text-red-400 border-red-100' : 'bg-white text-gray-500 border-gray-100 hover:border-gray-300')
                               }`}
                             >
                               {size}
@@ -270,10 +238,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, on
                         </div>
                       </div>
                       <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-xs font-bold text-gray-400 uppercase">Milk</p>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <p className="text-[8px] md:text-[9px] font-bold text-gray-400 uppercase tracking-widest">Choice of Milk</p>
                           {showOptionErrors && !customizations.milk && (
-                            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest animate-pulse">Required</span>
+                            <span className="text-[8px] font-bold text-red-500 uppercase tracking-widest animate-pulse font-sans">Selection Required</span>
                           )}
                         </div>
                         <div className="flex flex-wrap gap-2">
@@ -281,10 +249,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, on
                             <button
                               key={milk}
                               onClick={() => handleCustomizationChange('milk', milk)}
-                              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-[9px] md:text-[10px] font-bold transition-all border tracking-widest uppercase ${
                                 customizations.milk === milk 
-                                  ? 'bg-[#1a1a1a] text-white' 
-                                  : (showOptionErrors && !customizations.milk ? 'bg-red-50 text-red-400 border border-red-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')
+                                  ? 'bg-[#1a1a1a] text-white border-[#1a1a1a] shadow-lg' 
+                                  : (showOptionErrors && !customizations.milk ? 'bg-red-50 text-red-400 border-red-100' : 'bg-white text-gray-500 border-gray-100 hover:border-gray-300')
                               }`}
                             >
                               {milk}
@@ -297,62 +265,97 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, on
                 )}
 
                 <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase mb-2">Quantity</p>
-                  <div className="flex items-center gap-4">
+                  <p className="text-[8px] md:text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Quantity</p>
+                  <div className="flex items-center gap-5">
                     <button
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"
+                      className="w-7 h-7 md:w-8 md:h-8 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
                     >
-                      <Minus size={16} />
+                      <Minus size={11} />
                     </button>
-                    <span className="text-xl font-bold w-8 text-center">{quantity}</span>
+                    <span className="text-[13px] md:text-sm font-bold w-4 text-center tabular-nums">{quantity}</span>
                     <button
                       onClick={() => setQuantity(quantity + 1)}
-                      className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"
+                      className="w-7 h-7 md:w-8 md:h-8 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
                     >
-                      <Plus size={16} />
+                      <Plus size={11} />
                     </button>
                   </div>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-6">
+                <div className="h-px w-8 bg-gray-200" />
+                <p className="text-[11px] md:text-xs text-gray-500 leading-relaxed font-sans font-light max-w-sm">
+                  {product.description || `Experience the unparalleled craftsmanship of our ${product.name}. A testament to quality and contemporary design.`}
+                </p>
+                
+                <div className="flex gap-6 pt-1">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-[8px] md:text-[9px] text-gray-400 font-bold uppercase tracking-widest">
+                      <ShieldCheck size={11} className="text-black/20" />
+                      <span>Certified</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-[8px] md:text-[9px] text-gray-400 font-bold uppercase tracking-widest">
+                      <Truck size={11} className="text-black/20" />
+                      <span>Express Shipping</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-6 p-3 md:p-4 bg-gray-50/50 rounded-xl border border-black/[0.03]">
+                <p className="text-[8px] md:text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Availability Status</p>
+                <div className="flex items-center gap-2">
+                  <div className={`w-1 h-1 md:w-1.5 md:h-1.5 rounded-full ${product.stock && product.stock > 0 ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                  <p className={`text-[10px] md:text-[11px] font-medium font-sans ${product.stock && product.stock > 0 ? 'text-gray-600' : 'text-red-500'}`}>
+                    {product.stock && product.stock > 0 ? `${product.stock} pieces currently available` : 'Temporarily Out of Stock'}
+                  </p>
                 </div>
               </div>
             </div>
 
             {showOptionErrors && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2 text-red-600 text-xs font-bold uppercase tracking-widest animate-bounce">
-                <X size={14} />
-                Please select all required options
+              <div className="mb-4 p-2.5 bg-red-50 border border-red-100 rounded-lg flex items-center gap-2 text-red-600 text-[8px] md:text-[9px] font-bold uppercase tracking-[0.2em] animate-pulse">
+                <X size={10} />
+                Please complete all required selections
               </div>
             )}
 
-            <button
-              onClick={handleAddToCart}
-              disabled={product.stock === 0}
-              className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-bold text-lg transition-all duration-300 shadow-xl mb-4 ${
-                product.stock === 0
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : (showOptionErrors ? 'bg-red-500 text-white' : 'bg-[#1a1a1a] text-white hover:bg-[#d35400] hover:scale-[1.02] active:scale-95')
-              }`}
-            >
-              <ShoppingCart size={20} />
-              {product.stock === 0 ? 'Out of Stock' : (showOptionErrors ? 'Select Options' : `Add to Cart - ${formatPrice(currentPrice * quantity, currency)}`)}
-            </button>
+            <div className="mt-8 pt-4 md:pt-8 border-t border-black/5 space-y-3">
+              <button
+                onClick={handleAddToCart}
+                disabled={product.stock === 0}
+                className={`w-full py-3.5 md:py-4 rounded-xl flex items-center justify-center gap-3 font-bold text-[10px] md:text-[11px] uppercase tracking-[0.2em] transition-all duration-500 shadow-xl ${
+                  product.stock === 0
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
+                    : (showOptionErrors ? 'bg-red-500 text-white' : 'bg-[#1a1a1a] text-white hover:bg-[#d35400] active:scale-[0.98]')
+                }`}
+              >
+                <ShoppingCart size={14} />
+                {product.stock === 0 ? 'Not Available' : (showOptionErrors ? 'Complete Options' : `Add to Bag — ${formatPrice(currentPrice * quantity, currency)}`)}
+              </button>
 
-            <button
-              onClick={onClose}
-              className="w-full py-3 text-gray-400 hover:text-gray-600 font-bold text-sm uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-            >
-              <ArrowLeft size={14} /> Back
-            </button>
+              <button
+                onClick={onClose}
+                className="w-full py-1.5 text-gray-300 hover:text-gray-600 font-bold text-[8px] md:text-[9px] uppercase tracking-[0.2em] transition-colors flex items-center justify-center gap-2 group"
+              >
+                <ArrowLeft size={10} className="group-hover:-translate-x-1 transition-transform" /> 
+                Return to Shop
+              </button>
+            </div>
 
             {/* Feedback Section */}
-            <div className="mt-12 pt-12 border-t border-black/5">
+            <div className="mt-8 pt-6 border-t border-black/5 pb-4">
               <Feedback productId={product.id} user={user} />
             </div>
           </div>
         </motion.div>
-        </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+      </div>
+    </motion.div>
+  )}
+</AnimatePresence>
   );
 };

@@ -1,5 +1,19 @@
 import express from 'express';
 import multer from 'multer';
+
+// Global error handling to prevent crashes from background tasks or port conflicts
+process.on('uncaughtException', (err: any) => {
+  if (err.message?.includes('EADDRINUSE') && (err.message?.includes('24678') || err.message?.includes('3000'))) {
+    console.warn(`Handled expected port conflict: ${err.message}`);
+    return;
+  }
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 console.log('Server script starting...');
 import { neon } from '@neondatabase/serverless';
 import cors from 'cors';
@@ -1849,7 +1863,7 @@ io.on('connection', (socket) => {
       const token = jwt.sign(
         { id: user.id, email: user.email, role: user.role, name: user.name },
         JWT_SECRET,
-        { expiresIn: '24h' }
+        { expiresIn: '30d' }
       );
       
       res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role, address: user.address, contact_info: user.contact_info } });
@@ -1859,7 +1873,7 @@ io.on('connection', (socket) => {
         const token = jwt.sign(
           { id: 'mock-admin-id', email: req.body.email, role: 'super_admin', name: 'Mock Admin' },
           JWT_SECRET,
-          { expiresIn: '24h' }
+          { expiresIn: '30d' }
         );
         return res.json({ token, user: { id: 'mock-admin-id', email: req.body.email, name: 'Mock Admin', role: 'super_admin' } });
       }
@@ -1960,7 +1974,7 @@ io.on('connection', (socket) => {
       const token = jwt.sign(
         { id: user.id, email: user.email, role: user.role, name: user.name },
         JWT_SECRET,
-        { expiresIn: '24h' }
+        { expiresIn: '30d' }
       );
       
       const userPayload = { 
@@ -2552,8 +2566,15 @@ io.on('connection', (socket) => {
     }
   }
 
-  // Initialize DB schema
-  await ensureDatabaseSchema();
+  // Initialize DB schema in background to prevent blocking server startup
+  (async () => {
+    try {
+      await ensureDatabaseSchema();
+      console.log('Database schema initialization complete');
+    } catch (error) {
+      console.error('Background database initialization failed:', error);
+    }
+  })();
 
   app.put('/api/auth/me', authenticateToken, async (req: any, res) => {
     console.log('PUT /api/auth/me called');
@@ -3632,12 +3653,19 @@ io.on('connection', (socket) => {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
+    try {
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { 
+          middlewareMode: true,
+          hmr: false
+        },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } catch (e) {
+      console.error('Failed to initialize Vite middleware:', e);
+    }
   } else if (!process.env.VERCEL) {
     // Only serve static files if NOT on Vercel (Vercel handles static files itself)
     const distPath = path.join(process.cwd(), 'dist');

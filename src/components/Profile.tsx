@@ -168,6 +168,14 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
         });
+        
+        if (res.status === 401 || res.status === 403) {
+          console.error('Session expired or unauthorized');
+          toast.error('Session expired. Please login again.');
+          onLogout();
+          return;
+        }
+
         if (res.ok) {
           const data = await res.json();
           setOrders(data);
@@ -205,6 +213,13 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
         body: JSON.stringify({ currentPassword, newPassword })
       });
       
+      if (res.status === 401 || res.status === 403) {
+        console.error('Session expired or unauthorized');
+        toast.error('Session expired. Please login again.');
+        onLogout();
+        return;
+      }
+
       const data = await res.json();
       if (res.ok) {
         toast.success('Password changed successfully');
@@ -252,6 +267,13 @@ export function Profile({ user: initialUser, onLogout, onBackToStore, onUpdateUs
           profile_image_url: editImage
         })
       });
+
+      if (res.status === 401 || res.status === 403) {
+        console.error('Session expired or unauthorized');
+        toast.error('Session expired. Please login again.');
+        onLogout();
+        return;
+      }
 
       if (res.ok) {
         const updatedUser = await res.json();

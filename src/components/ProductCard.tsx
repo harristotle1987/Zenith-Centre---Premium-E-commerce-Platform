@@ -36,13 +36,13 @@ export const ProductCard: React.FC<Props> = ({ product, onAddToCart, onViewDetai
           referrerPolicy="no-referrer"
         />
         <div className="absolute top-3 right-3">
-          <span className="px-2 py-1 bg-white/90 backdrop-blur-md text-[#d35400] text-[9px] font-bold rounded-full shadow-sm uppercase tracking-wider">
+          <span className="px-2 py-1 bg-white/90 backdrop-blur-md text-[#d35400] text-[8px] font-bold rounded-full shadow-sm uppercase tracking-[0.1em]">
             {product.department}
           </span>
         </div>
         {product.discountPercentage && (
           <div className="absolute top-0 left-0 h-full w-8 flex items-center justify-center bg-red-600/90 backdrop-blur-sm z-10">
-            <span className="text-white text-xs font-black uppercase tracking-tighter [writing-mode:vertical-lr] rotate-180">
+            <span className="text-white text-[10px] font-black uppercase tracking-tighter [writing-mode:vertical-lr] rotate-180">
               SAVE {product.discountPercentage}% OFF
             </span>
           </div>
@@ -51,8 +51,8 @@ export const ProductCard: React.FC<Props> = ({ product, onAddToCart, onViewDetai
       
       <div className="p-4 flex flex-col flex-1 justify-between bg-white">
         <div>
-          <div className="flex justify-between items-start mb-1">
-            <h3 className="text-sm sm:text-base text-[#1a1a1a] font-bold leading-tight group-hover:text-[#d35400] transition-colors line-clamp-2">
+          <div className="flex justify-between items-start mb-1.5">
+            <h3 className="text-sm sm:text-[15px] text-[#1a1a1a] font-serif font-medium leading-tight group-hover:text-[#d35400] transition-colors line-clamp-2 tracking-tight">
               {product.name}
             </h3>
           </div>
@@ -70,7 +70,7 @@ export const ProductCard: React.FC<Props> = ({ product, onAddToCart, onViewDetai
                         setCurrentImage(colorImage);
                       }
                     }}
-                    className={`w-4 h-4 rounded-full border border-black/10 transition-all hover:scale-125 ${currentImage === colorImage ? 'ring-2 ring-[#d35400] ring-offset-1' : ''}`}
+                    className={`w-3 h-3 rounded-full border border-black/10 transition-all hover:scale-125 ${currentImage === colorImage ? 'ring-1 ring-[#d35400] ring-offset-1' : ''}`}
                     style={isValidHex ? { backgroundColor: color } : {}}
                     title={color}
                   />
@@ -79,29 +79,23 @@ export const ProductCard: React.FC<Props> = ({ product, onAddToCart, onViewDetai
             </div>
           )}
 
-          {product.description && (
-            <p className="text-[10px] sm:text-xs text-gray-500 line-clamp-2 mb-2 leading-relaxed">
-              {product.description}
-            </p>
-          )}
-          
-          <div className="flex items-center gap-1 mb-3">
+          <div className="flex items-center gap-1 mb-2">
             {[...Array(5)].map((_, i) => (
-              <Star key={i} size={10} className="fill-yellow-400 text-yellow-400" />
+              <Star key={i} size={8} className="fill-yellow-400 text-yellow-400" />
             ))}
-            <span className="text-[9px] text-gray-400 ml-1">(4.8)</span>
+            <span className="text-[8px] text-gray-400 font-sans uppercase tracking-widest ml-1">(4.8)</span>
           </div>
-
-          <div className="flex justify-between items-end">
+          
+          <div className="flex justify-between items-end gap-2">
             <div className="flex flex-col">
               {product.originalPrice && (
-                <span className="text-[10px] text-gray-400 line-through">
+                <span className="text-[9px] text-gray-300 font-sans line-through">
                   {formatPrice(Number(product.originalPrice), currency)}
                 </span>
               )}
-              <p className="text-base sm:text-lg text-[#1a1a1a] font-black tracking-tight">
+              <p className="text-sm sm:text-base text-[#1a1a1a] font-sans font-bold tracking-tight">
                 {product.optionPriceModifiers && Object.keys(product.optionPriceModifiers).length > 0 && (
-                  <span className="text-[9px] text-gray-400 block -mb-1 uppercase tracking-widest">Starts from</span>
+                  <span className="text-[8px] text-gray-300 block -mb-0.5 uppercase tracking-widest font-bold">From</span>
                 )}
                 {formatPrice(Number(product.price), currency)}
               </p>
@@ -114,18 +108,18 @@ export const ProductCard: React.FC<Props> = ({ product, onAddToCart, onViewDetai
                 }
               }}
               disabled={product.stock === 0}
-              className={`flex items-center justify-center w-8 h-8 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-full text-xs font-bold transition-all duration-300 shadow-md ${
+              className={`flex items-center justify-center w-7 h-7 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all duration-300 shadow-sm ${
                 product.stock === 0 
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
-                  : 'bg-[#1a1a1a] text-white hover:bg-[#d35400] hover:scale-110 active:scale-95'
+                  ? 'bg-gray-100 text-gray-300 cursor-not-allowed' 
+                  : 'bg-[#1a1a1a] text-white hover:bg-[#d35400] active:scale-95'
               }`}
             >
               {product.stock === 0 ? (
-                <span className="hidden sm:inline">Out of Stock</span>
+                <span className="hidden sm:inline">Sold Out</span>
               ) : (
                 <>
                   <span className="hidden sm:inline mr-1">Add</span>
-                  <ShoppingCart size={14} />
+                  <ShoppingCart size={12} />
                 </>
               )}
             </button>

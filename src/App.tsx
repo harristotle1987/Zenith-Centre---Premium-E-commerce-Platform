@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { AnimatePresence } from 'motion/react';
 import { Navbar } from './components/Navbar';
-import { Hero } from './components/Hero';
-import { RecommendedCategories } from './components/RecommendedCategories';
 import { ProductCard } from './components/ProductCard';
 import { MemberVault } from './components/MemberVault';
 import { Product } from './constants/products';
@@ -14,6 +12,7 @@ import { Profile } from './components/Profile';
 import { Footer } from './components/Footer';
 import { InfoModal } from './components/InfoModal';
 import { ProductModal } from './components/ProductModal';
+import { FilterDropdown } from './components/FilterDropdown';
 import { getApiUrl } from './utils/api';
 import { Currency } from './utils/currency';
 import { Toaster, toast } from 'sonner';
@@ -25,7 +24,6 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
-  const [recommendedCategories, setRecommendedCategories] = useState<string[]>([]);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [isAdminView, setIsAdminView] = useState(() => {
@@ -263,22 +261,6 @@ export default function App() {
   }, [isAdminView, fetchData]);
 
   useEffect(() => {
-    const fetchRecommendations = async () => {
-      try {
-        const res = await fetch(getApiUrl('/api/recommendations/categories'), {
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-        });
-        if (res.ok) {
-          setRecommendedCategories(await res.json());
-        }
-      } catch (err) {
-        console.error('Failed to fetch recommendations', err);
-      }
-    };
-    fetchRecommendations();
-  }, [token]);
-
-  useEffect(() => {
     if (!searchQuery.trim()) return;
     
     const timer = setTimeout(async () => {
@@ -463,178 +445,83 @@ export default function App() {
         setSearchQuery={setSearchQuery}
       />
       
-      <main>
-        <Hero searchQuery={searchQuery} setSearchQuery={setSearchQuery} settings={settings} />
+      <main className="pt-24 min-h-screen bg-[#fdfbf7]">
+        {/* We removed Hero and RecommendedCategories for a direct-to-products interface as requested */}
         
-        <RecommendedCategories 
-          categories={recommendedCategories} 
-          onCategoryClick={(cat) => {
-            setActiveDepartment(cat);
-            window.scrollTo({ top: document.getElementById('menu-section')?.offsetTop || 800, behavior: 'smooth' });
-          }} 
-          settings={settings}
-        />
-        
-        <div id="menu-section" />
+        <div id="menu-section" className="scroll-mt-24" />
 
-        {activeDepartment === 'All' && !searchQuery ? (
-          <div className="py-16 bg-[#fdfbf7] space-y-20">
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 border-b border-black/5 pb-4 gap-4">
-                <h2 className="text-2xl font-serif font-bold text-[#1a1a1a] uppercase tracking-tight">Our Products</h2>
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Dept:</span>
-                    <select 
-                      value={activeDepartment}
-                      onChange={(e) => setActiveDepartment(e.target.value)}
-                      className="bg-white border border-black/10 rounded-lg px-3 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#d35400]/20"
-                    >
-                      {departments.map(dept => (
-                        <option key={dept} value={dept}>{dept}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Show:</span>
-                    <select 
-                      value={itemsToShow}
-                      onChange={(e) => setItemsToShow(Number(e.target.value))}
-                      className="bg-white border border-black/10 rounded-lg px-3 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#d35400]/20"
-                    >
-                      <option value={20}>20</option>
-                      <option value={50}>50</option>
-                      <option value={100}>100</option>
-                      <option value={200}>200</option>
-                    </select>
-                  </div>
-                  <span className="text-sm text-gray-500 font-medium uppercase tracking-widest">
-                    Showing {Math.min(products.length, itemsToShow)} of {products.length} Products
-                  </span>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-                {products
-                  .sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }))
-                  .slice(0, itemsToShow)
-                  .map(product => (
-                    <ProductCard 
-                      key={product.id} 
-                      product={product} 
-                      onAddToCart={() => {
-                        const hasOptions = (product.options && Object.keys(product.options).length > 0) || 
-                                          product.department === 'Coffee' || 
-                                          product.department === 'Tea & Other';
-                        if (hasOptions) {
-                          setSelectedProduct(product);
-                        } else {
-                          addToCart(product);
-                        }
-                      }}
-                      onViewDetails={(p) => setSelectedProduct(p)}
-                      currency={currency}
-                    />
-                  ))}
-              </div>
-              {products.length > itemsToShow && (
-                <div className="mt-12 text-center">
-                  <button 
-                    onClick={() => setItemsToShow(prev => prev + 50)}
-                    className="px-8 py-4 bg-[#d35400] text-white font-bold uppercase tracking-widest rounded-full hover:bg-[#b34700] transition-all shadow-lg shadow-[#d35400]/20"
-                  >
-                    Load More Products
-                  </button>
-                </div>
-              )}
-            </section>
-
-            {departments.filter(d => d !== 'All').map(dept => {
-              const deptProducts = products.filter(p => p.department === dept).slice(0, 10);
-              if (deptProducts.length === 0) return null;
-              
-              return (
-                <section key={dept} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                  <div className="flex items-center justify-between mb-8 border-b border-black/5 pb-4">
-                    <h2 className="text-2xl font-serif font-bold text-[#1a1a1a] uppercase tracking-tight">{dept}</h2>
-                    <button 
-                      onClick={() => setActiveDepartment(dept)}
-                      className="text-sm font-bold text-[#d35400] uppercase tracking-widest hover:underline"
-                    >
-                      View All
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-                    {deptProducts.map(product => (
-                      <ProductCard 
-                        key={product.id} 
-                        product={product} 
-                        onAddToCart={() => {
-                          const hasOptions = (product.options && Object.keys(product.options).length > 0) || 
-                                            product.department === 'Coffee' || 
-                                            product.department === 'Tea & Other';
-                          if (hasOptions) {
-                            setSelectedProduct(product);
-                          } else {
-                            addToCart(product);
-                          }
-                        }}
-                        onViewDetails={(p) => setSelectedProduct(p)}
-                        currency={currency}
-                      />
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
-        ) : (
-          <section className="py-16 bg-[#fdfbf7]">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center justify-between mb-8 border-b border-black/5 pb-4">
-                <h2 className="text-2xl font-serif font-bold text-[#1a1a1a] uppercase tracking-tight">
-                  {searchQuery ? 'Search Results' : activeDepartment}
-                </h2>
-                {activeDepartment !== 'All' && !searchQuery && (
-                  <button 
-                    onClick={() => setActiveDepartment('All')}
-                    className="text-sm font-bold text-gray-500 uppercase tracking-widest hover:text-[#1a1a1a]"
-                  >
-                    Clear Filter
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-col gap-12">
-                <main className="flex-1">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-                    {filteredProducts.map(product => (
-                      <ProductCard 
-                        key={product.id} 
-                        product={product} 
-                        onAddToCart={() => {
-                          const hasOptions = (product.options && Object.keys(product.options).length > 0) || 
-                                            product.department === 'Coffee' || 
-                                            product.department === 'Tea & Other';
-                          if (hasOptions) {
-                            setSelectedProduct(product);
-                          } else {
-                            addToCart(product);
-                          }
-                        }}
-                        onViewDetails={(p) => setSelectedProduct(p)}
-                        currency={currency}
-                      />
-                    ))}
-                  </div>
-                  {filteredProducts.length === 0 && (
-                    <div className="text-center py-20">
-                      <p className="text-gray-500 text-lg">No products found.</p>
-                    </div>
-                  )}
-                </main>
-              </div>
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 border-b border-black/5 pb-4 gap-4">
+            <h2 className="text-3xl font-serif font-medium text-[#1a1a1a] tracking-tight italic">Our Collection</h2>
+            <div className="flex flex-wrap items-center gap-4">
+              <FilterDropdown 
+                label="Department"
+                value={activeDepartment}
+                options={['All', ...departments.filter(dept => dept.toLowerCase() !== 'all')]}
+                onChange={setActiveDepartment}
+              />
+              <FilterDropdown 
+                label="Show"
+                value={itemsToShow}
+                options={[20, 50, 100, 200]}
+                onChange={(val) => setItemsToShow(Number(val))}
+              />
+              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em] hidden md:inline">
+                {Math.min(filteredProducts.length, itemsToShow)} / {filteredProducts.length} Items
+              </span>
             </div>
-          </section>
-        )}
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+            {filteredProducts
+              .sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }))
+              .slice(0, itemsToShow)
+              .map(product => (
+                <ProductCard 
+                  key={product.id} 
+                  product={product} 
+                  onAddToCart={() => {
+                    const hasOptions = (product.options && Object.keys(product.options).length > 0) || 
+                                      product.department === 'Coffee' || 
+                                      product.department === 'Tea & Other';
+                    if (hasOptions) {
+                      setSelectedProduct(product);
+                    } else {
+                      addToCart(product);
+                    }
+                  }}
+                  onViewDetails={(p) => setSelectedProduct(p)}
+                  currency={currency}
+                />
+              ))}
+          </div>
+
+          {filteredProducts.length === 0 && (
+            <div className="text-center py-20 bg-white/50 rounded-3xl border border-black/5 mt-8">
+              <p className="text-gray-500 text-lg">No products found for "{searchQuery || activeDepartment}".</p>
+              <button 
+                onClick={() => {
+                  setSearchQuery('');
+                  setActiveDepartment('All');
+                }}
+                className="mt-4 text-[#d35400] font-bold uppercase tracking-widest hover:underline"
+              >
+                Reset Filters
+              </button>
+            </div>
+          )}
+
+          {filteredProducts.length > itemsToShow && (
+            <div className="mt-12 text-center">
+              <button 
+                onClick={() => setItemsToShow(prev => prev + 50)}
+                className="px-8 py-4 bg-[#d35400] text-white font-bold uppercase tracking-widest rounded-full hover:bg-[#b34700] transition-all shadow-lg shadow-[#d35400]/20"
+              >
+                Load More Products
+              </button>
+            </div>
+          )}
+        </section>
 
         <div id="member-vault-section" />
         <MemberVault />
