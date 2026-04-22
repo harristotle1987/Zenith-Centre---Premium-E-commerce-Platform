@@ -1678,6 +1678,17 @@ io.on('connection', (socket) => {
   // Make io available to routes
   app.set('io', io);
 
+  app.use(async (req, res, next) => {
+    if (!schemaChecked && !req.path.startsWith('/api/health')) {
+      try {
+        await ensureDatabaseSchema();
+      } catch (e) {
+        console.error('Lazy schema check failed:', e);
+      }
+    }
+    next();
+  });
+
   app.use(cors());
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -1689,8 +1700,21 @@ io.on('connection', (socket) => {
   });
 
   // Health check
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  app.get('/api/health', async (req, res) => {
+    try {
+      if (req.query.init === 'true') {
+        // Trigger schema check manually if requested
+        await ensureDatabaseSchema();
+      }
+      res.json({ 
+        status: 'ok', 
+        environment: process.env.VERCEL ? 'vercel' : 'local',
+        db_ready: schemaChecked,
+        timestamp: new Date().toISOString() 
+      });
+    } catch (error) {
+      res.status(500).json({ status: 'error', error: String(error) });
+    }
   });
 
   // Database Health check
@@ -1721,62 +1745,6 @@ io.on('connection', (socket) => {
       } else {
         console.error('Database connection test failed:', error);
         console.error('DB_URL used:', DB_URL.replace(/:[^:@]+@/, ':****@')); // Mask password
-      }
-    }
-  })();
-
-  // Run migrations in background
-  (async () => {
-    try {
-      
-      await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_name VARCHAR(255)`;
-      await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_email VARCHAR(255)`;
-      await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_contact VARCHAR(255)`;
-      await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(255)`;
-      await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50)`;
-      await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT 'pending'`;
-      await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS stock_reduced BOOLEAN DEFAULT FALSE`;
-      await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS staff_id INTEGER REFERENCES users(id)`;
-      await sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(255)`;
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT`;
-      await sql`CREATE TABLE IF NOT EXISTS settings (key VARCHAR(255) PRIMARY KEY, value VARCHAR(255) NOT NULL)`;
-      await sql`CREATE TABLE IF NOT EXISTS roles (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) UNIQUE NOT NULL,
-        description TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )`;
-      await sql`INSERT INTO roles (name) VALUES 
-        ('super_admin'), ('staff'), ('accountant'), ('secretary'), ('manager'), ('counter_staff') 
-        ON CONFLICT (name) DO NOTHING`;
-      await sql`CREATE TABLE IF NOT EXISTS newsletter_subscribers (
-        id SERIAL PRIMARY KEY,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )`;
-      await sql`INSERT INTO settings (key, value) VALUES ('exchange_rate', '1') ON CONFLICT (key) DO NOTHING`;
-      await sql`CREATE TABLE IF NOT EXISTS feedback (
-        id SERIAL PRIMARY KEY,
-        product_id BIGINT REFERENCES products(id) ON DELETE CASCADE,
-        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        guest_name VARCHAR(255),
-        rating INTEGER CHECK (rating >= 1 AND rating <= 5),
-        comment TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )`;
-      console.log('Feedback table initialized');
-      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT`;
-      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS original_price DECIMAL(10, 2)`;
-      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS discount_percentage INTEGER`;
-      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS options JSONB`;
-      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS option_price_modifiers JSONB`;
-      await sql`ALTER TABLE products DROP CONSTRAINT IF EXISTS products_name_key`;
-      console.log('Payment and guest columns checked/added to orders and transactions tables, settings table initialized, feedback table initialized, product description column checked, unique constraint on product name dropped');
-    } catch (e: any) {
-      if (e.message?.includes('data transfer quota')) {
-        console.warn('Migration error: Database quota exceeded.');
-      } else {
-        console.error('Migration error:', e);
       }
     }
   })();
@@ -2316,20 +2284,21 @@ io.on('connection', (socket) => {
     }
   }
 
+  let schemaChecked = false;
   async function ensureDatabaseSchema() {
+    if (schemaChecked) return;
     try {
+      console.time('schemaCheck');
+      const tableCheck = await sql`SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public'`;
+      const existingTables = tableCheck.map((t: any) => t.tablename);
+
+      // Core Tables
+      if (!existingTables.includes('departments')) {
+        await sql`CREATE TABLE IF NOT EXISTS departments (id BIGSERIAL PRIMARY KEY, name VARCHAR(255) UNIQUE NOT NULL, image_url TEXT)`;
+      }
       
-      
-      await sql`
-        CREATE TABLE IF NOT EXISTS departments (
-          id BIGSERIAL PRIMARY KEY,
-          name VARCHAR(255) UNIQUE NOT NULL,
-          image_url TEXT
-        )
-      `;
-      
-      await sql`
-        CREATE TABLE IF NOT EXISTS products (
+      if (!existingTables.includes('products')) {
+        await sql`CREATE TABLE IF NOT EXISTS products (
           id BIGSERIAL PRIMARY KEY,
           name VARCHAR(255) NOT NULL,
           price DECIMAL(10, 2) NOT NULL,
@@ -2344,48 +2313,36 @@ io.on('connection', (socket) => {
           color_images JSONB,
           gallery JSONB,
           option_images JSONB
-        )
-      `;
-
-      try {
-        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS original_price DECIMAL(10, 2)`;
-        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS discount_percentage INTEGER`;
-        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS options JSONB`;
-        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS option_price_modifiers JSONB`;
-        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS color_images JSONB`;
-        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS gallery JSONB`;
-        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS option_images JSONB`;
-      } catch (e) {
-        // Columns might already exist
+        )`;
       }
 
-      await sql`
-        CREATE TABLE IF NOT EXISTS users (
+      if (!existingTables.includes('users')) {
+        await sql`CREATE TABLE IF NOT EXISTS users (
           id BIGSERIAL PRIMARY KEY,
           email VARCHAR(255) UNIQUE NOT NULL,
           password_hash TEXT NOT NULL,
           name VARCHAR(255) NOT NULL,
-          role VARCHAR(50) DEFAULT 'customer', -- 'super_admin', 'staff', 'customer', 'accountant', 'secretary'
+          role VARCHAR(50) DEFAULT 'customer',
           contact_info TEXT,
           address TEXT,
           profile_image_url TEXT,
           staff_id VARCHAR(50) UNIQUE,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `;
+        )`;
+      }
 
-      await sql`
-        CREATE TABLE IF NOT EXISTS activities (
+      if (!existingTables.includes('activities')) {
+        await sql`CREATE TABLE IF NOT EXISTS activities (
           id BIGSERIAL PRIMARY KEY,
           user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
           action TEXT NOT NULL,
           details JSONB,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `;
+        )`;
+      }
 
-      await sql`
-        CREATE TABLE IF NOT EXISTS orders (
+      if (!existingTables.includes('orders')) {
+        await sql`CREATE TABLE IF NOT EXISTS orders (
           id BIGSERIAL PRIMARY KEY,
           user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
           staff_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
@@ -2393,193 +2350,145 @@ io.on('connection', (socket) => {
           guest_email VARCHAR(255),
           guest_contact VARCHAR(255),
           total_amount DECIMAL(10, 2) NOT NULL,
-          status VARCHAR(50) DEFAULT 'PLACED', -- 'PLACED', 'PAID', 'IN_PROGRESS', 'READY', 'COMPLETED', 'CANCELLED'
-          delivery_status VARCHAR(50) DEFAULT 'Placed', -- 'Placed', 'Preparing', 'Out for Delivery', 'Delivered'
-          order_type VARCHAR(50) DEFAULT 'pickup', -- 'pickup', 'in-store'
+          status VARCHAR(50) DEFAULT 'PLACED',
+          delivery_status VARCHAR(50) DEFAULT 'Placed',
+          order_type VARCHAR(50) DEFAULT 'pickup',
           payment_method VARCHAR(50) DEFAULT 'card',
           payment_reference VARCHAR(255),
           payment_status VARCHAR(50) DEFAULT 'PENDING',
           delivery_address TEXT,
+          order_number VARCHAR(20) UNIQUE,
+          stock_reduced BOOLEAN DEFAULT FALSE,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `;
-
-      try {
-        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_number VARCHAR(20) UNIQUE`;
-        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_name VARCHAR(255)`;
-        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_email VARCHAR(255)`;
-        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_contact VARCHAR(255)`;
-        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS staff_id BIGINT REFERENCES users(id)`;
-        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50) DEFAULT 'card'`;
-        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(255)`;
-        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT 'PENDING'`;
-        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address TEXT`;
-        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_status VARCHAR(50) DEFAULT 'Placed'`;
-        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type VARCHAR(50) DEFAULT 'pickup'`;
-      } catch (e) {
-        // Columns might already exist, ignore
+        )`;
       }
 
-      await sql`
-        CREATE TABLE IF NOT EXISTS order_items (
+      if (!existingTables.includes('order_items')) {
+        await sql`CREATE TABLE IF NOT EXISTS order_items (
           id BIGSERIAL PRIMARY KEY,
           order_id BIGINT REFERENCES orders(id) ON DELETE CASCADE,
           product_id BIGINT REFERENCES products(id) ON DELETE SET NULL,
           quantity INTEGER NOT NULL,
           price_at_purchase DECIMAL(10, 2) NOT NULL,
           customizations JSONB
-        )
-      `;
-
-      try {
-        await sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS customizations JSONB`;
-      } catch (e) {
-        // Column might already exist, ignore
+        )`;
       }
 
-      await sql`
-        CREATE TABLE IF NOT EXISTS transactions (
+      if (!existingTables.includes('transactions')) {
+        await sql`CREATE TABLE IF NOT EXISTS transactions (
           id BIGSERIAL PRIMARY KEY,
           order_id BIGINT REFERENCES orders(id) ON DELETE CASCADE,
           amount DECIMAL(10, 2) NOT NULL,
           payment_method VARCHAR(50) DEFAULT 'card',
           payment_reference VARCHAR(255),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `;
+        )`;
+      }
 
-      await sql`
-        CREATE TABLE IF NOT EXISTS staff_departments (
+      if (!existingTables.includes('settings')) {
+        await sql`CREATE TABLE IF NOT EXISTS settings (key VARCHAR(255) PRIMARY KEY, value VARCHAR(255) NOT NULL)`;
+        await sql`INSERT INTO settings (key, value) VALUES ('exchange_rate', '1') ON CONFLICT (key) DO NOTHING`;
+      }
+
+      if (!existingTables.includes('roles')) {
+        await sql`CREATE TABLE IF NOT EXISTS roles (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) UNIQUE NOT NULL,
+          description TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`;
+        await sql`INSERT INTO roles (name) VALUES ('super_admin'), ('staff'), ('accountant'), ('secretary'), ('manager'), ('counter_staff') ON CONFLICT (name) DO NOTHING`;
+      }
+
+      if (!existingTables.includes('newsletter_subscribers')) {
+        await sql`CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`;
+      }
+
+      if (!existingTables.includes('feedback')) {
+        await sql`CREATE TABLE IF NOT EXISTS feedback (
+          id SERIAL PRIMARY KEY,
+          product_id BIGINT REFERENCES products(id) ON DELETE CASCADE,
+          user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          guest_name VARCHAR(255),
+          rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+          comment TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`;
+      }
+
+      if (!existingTables.includes('staff_departments')) {
+        await sql`CREATE TABLE IF NOT EXISTS staff_departments (
           staff_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
           department_id BIGINT REFERENCES departments(id) ON DELETE CASCADE,
           PRIMARY KEY (staff_id, department_id)
-        )
-      `;
+        )`;
+      }
 
-      await sql`
-        CREATE TABLE IF NOT EXISTS settings (
-          key VARCHAR(255) PRIMARY KEY,
-          value VARCHAR(255) NOT NULL
-        )
-      `;
-
-      // Add UNIQUE constraint to name if it doesn't exist
+      // Column Migrations (Only run if necessary)
+      // These ensure that existing tables are up to date without being too slow
       try {
-        await sql`ALTER TABLE products ADD CONSTRAINT products_name_key UNIQUE (name)`;
+        await sql`ALTER TABLE products DROP CONSTRAINT IF EXISTS products_name_key`;
+        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT`;
+        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS original_price DECIMAL(10, 2)`;
+        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS discount_percentage INTEGER`;
+        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS options JSONB`;
+        await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS option_price_modifiers JSONB`;
+        
+        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_name VARCHAR(255)`;
+        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_email VARCHAR(255)`;
+        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_contact VARCHAR(255)`;
+        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(255)`;
+        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50)`;
+        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT 'pending'`;
+        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS stock_reduced BOOLEAN DEFAULT FALSE`;
+        await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS staff_id BIGINT REFERENCES users(id)`;
+        
+        await sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(255)`;
+        await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT`;
       } catch (e) {
-        // Constraint might already exist
+        console.warn('Migration warning:', e);
       }
 
-      // Create or update initial super admin
+      // Admin Creation
       const superAdminEmail = 'harristotle84@gmail.com';
-      const adminPassword = await bcrypt.hash('admin123', 10);
-      
-      // Create or update hardcoded admin
-      const hardcodedAdminEmail = 'admin@zenith.com';
-      const hardcodedAdminPassword = await bcrypt.hash('Colony082987@', 10);
-      
-      // Create or update initial secretary
-      const secretaryEmail = 'secretary@zenith.com';
-      const secretaryPassword = await bcrypt.hash('secretary123', 10);
-
-      const existingAdmin = await sql`SELECT * FROM users WHERE email = ${superAdminEmail}`;
-      let adminId;
+      const existingAdmin = await sql`SELECT id FROM users WHERE email = ${superAdminEmail} LIMIT 1`;
       if (existingAdmin.length === 0) {
-        const result = await sql`
-          INSERT INTO users (email, password_hash, name, role)
-          VALUES (${superAdminEmail}, ${adminPassword}, 'Super Admin', 'super_admin')
-          RETURNING id
-        `;
-        adminId = result[0].id;
-      } else {
-        await sql`
-          UPDATE users 
-          SET password_hash = ${adminPassword}, role = 'super_admin'
-          WHERE email = ${superAdminEmail}
-        `;
-        adminId = existingAdmin[0].id;
+        const adminPassword = await bcrypt.hash('admin123', 10);
+        await sql`INSERT INTO users (email, password_hash, name, role) VALUES (${superAdminEmail}, ${adminPassword}, 'Super Admin', 'super_admin')`;
       }
 
-      const existingHardcodedAdmin = await sql`SELECT * FROM users WHERE email = ${hardcodedAdminEmail}`;
-      if (existingHardcodedAdmin.length === 0) {
-        await sql`
-          INSERT INTO users (email, password_hash, name, role)
-          VALUES (${hardcodedAdminEmail}, ${hardcodedAdminPassword}, 'Administrator', 'super_admin')
-        `;
-      }
-
-      const existingSecretary = await sql`SELECT * FROM users WHERE email = ${secretaryEmail}`;
-      if (existingSecretary.length === 0) {
-        await sql`
-          INSERT INTO users (email, password_hash, name, role)
-          VALUES (${secretaryEmail}, ${secretaryPassword}, 'Secretary', 'secretary')
-        `;
-      } else {
-        await sql`
-          UPDATE users 
-          SET password_hash = ${secretaryPassword}, role = 'secretary'
-          WHERE email = ${secretaryEmail}
-        `;
-      }
-
-      // Fix foreign key constraints for existing tables
-      try {
-        await sql`ALTER TABLE order_items DROP CONSTRAINT IF EXISTS order_items_product_id_fkey`;
-        await sql`ALTER TABLE order_items ADD CONSTRAINT order_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL`;
-      } catch (e: any) {
-        console.warn('Could not update order_items foreign key constraint:', e.message);
-      }
-
-      // Seed departments
-      console.log('Seeding departments...');
-      const mockDepts = Object.keys(REAL_PRODUCTS);
-
-      for (const deptName of mockDepts) {
-        await sql`
-          INSERT INTO departments (name)
-          VALUES (${deptName})
-          ON CONFLICT (name) DO NOTHING
-        `;
-      }
-
-      // Seed products
-      console.log('Seeding products...');
-      
-      for (const deptName of Object.keys(REAL_PRODUCTS)) {
-        const deptRes = await sql`SELECT id FROM departments WHERE name = ${deptName}`;
-        if (deptRes.length > 0) {
-          const deptId = deptRes[0].id;
-          const products = REAL_PRODUCTS[deptName];
-          for (const product of products) {
-            await sql`
-              INSERT INTO products (name, price, original_price, discount_percentage, image_url, description, stock_quantity, department_id, options, option_price_modifiers, color_images)
-              VALUES (
-                ${product.name}, 
-                ${product.price}, 
-                ${product.original_price || null}, 
-                ${product.discount_percentage || null}, 
-                ${product.image}, 
-                ${product.description || ''},
-                100, 
-                ${deptId}, 
-                ${product.options ? JSON.stringify(product.options) : null},
-                ${product.optionPriceModifiers ? JSON.stringify(product.optionPriceModifiers) : null},
-                ${product.color_images ? JSON.stringify(product.color_images) : null}
-              )
-              ON CONFLICT (name) DO UPDATE SET
-                price = EXCLUDED.price,
-                original_price = EXCLUDED.original_price,
-                discount_percentage = EXCLUDED.discount_percentage,
-                image_url = EXCLUDED.image_url,
-                description = EXCLUDED.description,
-                department_id = EXCLUDED.department_id,
-                options = EXCLUDED.options,
-                option_price_modifiers = EXCLUDED.option_price_modifiers,
-                color_images = EXCLUDED.color_images
-            `;
+      // Seeding logic
+      if (!process.env.VERCEL || existingTables.length === 0) {
+        const deptCount = await sql`SELECT count(*) FROM departments`;
+        if (parseInt(deptCount[0].count) === 0) {
+          console.log('Seeding initial data...');
+          const mockDepts = Object.keys(REAL_PRODUCTS);
+          for (const deptName of mockDepts) {
+            await sql`INSERT INTO departments (name) VALUES (${deptName}) ON CONFLICT (name) DO NOTHING`;
+          }
+          for (const deptName of Object.keys(REAL_PRODUCTS)) {
+            const deptRes = await sql`SELECT id FROM departments WHERE name = ${deptName}`;
+            if (deptRes.length > 0) {
+              const deptId = deptRes[0].id;
+              for (const product of REAL_PRODUCTS[deptName]) {
+                await sql`
+                  INSERT INTO products (name, price, original_price, discount_percentage, image_url, description, stock_quantity, department_id, options, option_price_modifiers, color_images)
+                  VALUES (${product.name}, ${product.price}, ${product.original_price || null}, ${product.discount_percentage || null}, ${product.image}, ${product.description || ''}, 100, ${deptId}, ${product.options ? JSON.stringify(product.options) : null}, ${product.optionPriceModifiers ? JSON.stringify(product.optionPriceModifiers) : null}, ${product.color_images ? JSON.stringify(product.color_images) : null})
+                  ON CONFLICT (name) DO NOTHING
+                `;
+              }
+            }
           }
         }
       }
+
+      schemaChecked = true;
+      console.timeEnd('schemaCheck');
+      console.log('Database schema initialization complete');
     } catch (error: any) {
       if (error.message?.includes('data transfer quota')) {
         console.warn('Failed to ensure database schema: Database quota exceeded.');
@@ -2589,15 +2498,18 @@ io.on('connection', (socket) => {
     }
   }
 
-  // Initialize DB schema in background to prevent blocking server startup
-  (async () => {
-    try {
-      await ensureDatabaseSchema();
-      console.log('Database schema initialization complete');
-    } catch (error) {
-      console.error('Background database initialization failed:', error);
-    }
-  })();
+  // Initialize DB schema ONLY if not on Vercel OR specifically requested.
+  // On Vercel, cold starts should be as fast as possible.
+  if (!process.env.VERCEL) {
+    (async () => {
+      try {
+        await ensureDatabaseSchema();
+        console.log('Database schema initialization complete');
+      } catch (error) {
+        console.error('Background database initialization failed:', error);
+      }
+    })();
+  }
 
   app.put('/api/auth/me', authenticateToken, async (req: any, res) => {
     console.log('PUT /api/auth/me called');
