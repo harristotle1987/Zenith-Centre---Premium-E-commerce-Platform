@@ -492,6 +492,7 @@ export default function App() {
                   }}
                   onViewDetails={(p) => setSelectedProduct(p)}
                   currency={currency}
+                  minStockThreshold={Number(settings.minStockThreshold || 5)}
                 />
               ))}
           </div>
@@ -545,6 +546,7 @@ export default function App() {
         onAddToCart={addToCart}
         currency={currency}
         user={user}
+        minStockThreshold={Number(settings.minStockThreshold || 5)}
       />
 
       <Footer 

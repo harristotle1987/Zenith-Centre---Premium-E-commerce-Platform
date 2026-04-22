@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Trash2, Package } from 'lucide-react';
+import { Plus, Trash2, Package, AlertTriangle } from 'lucide-react';
 import { formatPrice } from '../../../utils/currency';
 
 export const ProductsSection = ({ 
@@ -43,13 +43,17 @@ export const ProductsSection = ({
   const [editOptImgUrl, setEditOptImgUrl] = useState('');
 
   const addGalleryImage = (isEdit = false) => {
-    const url = isEdit ? editGalleryUrl : newGalleryUrl;
-    if (!url) return;
+    const urlStr = isEdit ? editGalleryUrl : newGalleryUrl;
+    if (!urlStr.trim()) return;
+    
+    // Split by commas, spaces, or newlines to allow multiple URLs
+    const urls = urlStr.split(/[\s,]+/).filter(url => url.trim().length > 0);
+    
     if (isEdit) {
-      setEditProdGallery([...editProdGallery, url]);
+      setEditProdGallery(prev => [...prev, ...urls]);
       setEditGalleryUrl('');
     } else {
-      setNewProdGallery([...newProdGallery, url]);
+      setNewProdGallery(prev => [...prev, ...urls]);
       setNewGalleryUrl('');
     }
   };
@@ -496,10 +500,11 @@ export const ProductsSection = ({
           {/* Gallery Images */}
           <div className="space-y-2 pt-4 border-t border-black/5">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Gallery Images (Optional)</label>
+            <p className="text-[10px] text-gray-400 italic">Add multiple URLs separated by spaces or commas, or upload multiple files.</p>
             <div className="flex gap-2">
               <input
                 type="url"
-                placeholder="Image URL"
+                placeholder="Image URL(s)"
                 value={newGalleryUrl}
                 onChange={(e) => setNewGalleryUrl(e.target.value)}
                 className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#d35400]"
@@ -509,6 +514,7 @@ export const ProductsSection = ({
                 <input 
                   type="file" 
                   accept="image/*" 
+                  multiple
                   className="hidden" 
                   onChange={(e) => handleNewImageUpload(e)}
                 />
@@ -902,10 +908,11 @@ export const ProductsSection = ({
                       {/* Edit Gallery Images */}
                       <div className="space-y-2 pt-3 border-t border-black/5">
                         <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Gallery Images</label>
+                        <p className="text-[8px] text-gray-400 italic">Add multiple URLs separated by spaces or commas, or upload multiple files.</p>
                         <div className="flex gap-2">
                           <input
                             type="url"
-                            placeholder="Image URL"
+                            placeholder="Image URL(s)"
                             value={editGalleryUrl}
                             onChange={(e) => setEditGalleryUrl(e.target.value)}
                             className="flex-1 bg-gray-50 border border-gray-200 rounded px-2 py-1 text-[10px] focus:outline-none focus:border-[#d35400]"
@@ -917,6 +924,10 @@ export const ProductsSection = ({
                           >
                             Add
                           </button>
+                          <label className="bg-gray-100 text-gray-600 px-3 py-1 rounded text-[10px] font-bold cursor-pointer hover:bg-gray-200 transition-colors flex items-center justify-center">
+                            {uploadingEditImage ? '...' : 'Upload'}
+                            <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleEditImageUpload(e)} />
+                          </label>
                         </div>
                         <div className="flex flex-wrap gap-2 mt-1">
                           {editProdGallery.map((url: string, idx: number) => (
@@ -1039,13 +1050,23 @@ export const ProductsSection = ({
                 ) : (
                   <div className="flex items-center gap-2">
                     <button 
-                      className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                      className={`text-xs font-bold px-3 py-2 rounded-lg transition-colors ${
+                        (prod.stock ?? 0) <= (minStockThreshold || 0) 
+                          ? 'bg-red-50 text-red-600 hover:bg-red-100 ring-1 ring-red-200' 
+                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
                       onClick={() => {
                         setEditingStockId(prod.id);
                         setEditStockValue(prod.stock?.toString() || '0');
                       }}
                     >
                       Stock: {prod.stock ?? 0}
+                      {(prod.stock ?? 0) <= (minStockThreshold || 0) && (
+                        <span className="ml-2 inline-flex items-center gap-1">
+                          <AlertTriangle size={10} />
+                          Low
+                        </span>
+                      )}
                     </button>
                     <button 
                       onClick={() => startEditingProduct(prod)} 

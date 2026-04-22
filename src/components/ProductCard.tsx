@@ -10,9 +10,10 @@ interface Props {
   onViewDetails: (product: Product) => void;
   currency: Currency;
   variants?: any;
+  minStockThreshold?: number;
 }
 
-export const ProductCard: React.FC<Props> = ({ product, onAddToCart, onViewDetails, currency, variants }) => {
+export const ProductCard: React.FC<Props> = ({ product, onAddToCart, onViewDetails, currency, variants, minStockThreshold = 5 }) => {
   const [currentImage, setCurrentImage] = React.useState(product.image);
 
   const colors = product.options?.colors || product.options?.color;
@@ -45,6 +46,11 @@ export const ProductCard: React.FC<Props> = ({ product, onAddToCart, onViewDetai
             <span className="text-white text-[10px] font-black uppercase tracking-tighter [writing-mode:vertical-lr] rotate-180">
               SAVE {product.discountPercentage}% OFF
             </span>
+          </div>
+        )}
+        {product.stock !== undefined && product.stock <= minStockThreshold && (
+          <div className="absolute bottom-2 left-2 bg-red-500/90 backdrop-blur-md px-2 py-0.5 rounded text-[8px] font-black text-white uppercase tracking-widest z-10 shadow-lg">
+            Low Stock: {product.stock} left
           </div>
         )}
       </div>

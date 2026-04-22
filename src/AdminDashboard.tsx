@@ -265,6 +265,9 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange,
       console.log('Upload response:', data);
       if (data.urls) {
         setNewProdGallery(prev => [...prev, ...data.urls]);
+        if (!newProdImage && data.urls.length > 0) {
+          setNewProdImage(data.urls[0]);
+        }
       }
     } catch (error) {
       console.error('Upload error:', error);
@@ -296,6 +299,9 @@ export function AdminDashboard({ user, currency, onUpdateUser, onCurrencyChange,
       console.log('Upload response (edit):', data);
       if (data.urls) {
         setEditProdGallery(prev => [...prev, ...data.urls]);
+        if (!editProdImage && data.urls.length > 0) {
+          setEditProdImage(data.urls[0]);
+        }
       }
     } catch (error) {
       console.error('Upload error (edit):', error);

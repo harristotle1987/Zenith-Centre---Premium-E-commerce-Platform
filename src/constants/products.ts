@@ -28,7 +28,8 @@ export const DEPARTMENTS = [
   "All",
   "Signature Coffee",
   "Artisanal Tea",
-  "Gourmet Pastries"
+  "Gourmet Pastries",
+  "Merchandise"
 ];
 
 export const PRODUCTS: Product[] = [
@@ -39,8 +40,13 @@ export const PRODUCTS: Product[] = [
     price: 3.50,
     originalPrice: 4.50,
     discountPercentage: 22,
-    description: "Our signature blend with notes of dark chocolate and toasted hazelnut.",
+    description: "Our signature blend with notes of dark chocolate and toasted hazelnut. Sourced from sustainable farms in the highlands.",
     image: "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?auto=format&fit=crop&q=80&w=800",
+    gallery: [
+      "https://images.unsplash.com/photo-1541167760496-162955ed8a9f?auto=format&fit=crop&q=80&w=800",
+      "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&q=80&w=800",
+      "https://images.unsplash.com/photo-1497933321027-94483f1585de?auto=format&fit=crop&q=80&w=800"
+    ],
     department: "Signature Coffee",
     options: {
       size: ["Single Shot", "Double Shot", "Triple Shot"],
@@ -60,8 +66,12 @@ export const PRODUCTS: Product[] = [
     id: "2",
     name: "Velvet Oat Latte",
     price: 5.50,
-    description: "Smooth espresso paired with creamy oat milk and a hint of Madagascar vanilla.",
+    description: "Smooth espresso paired with creamy oat milk and a hint of Madagascar vanilla. A vegan favorite.",
     image: "https://images.unsplash.com/photo-1570968915860-54d5c301fa9f?auto=format&fit=crop&q=80&w=800",
+    gallery: [
+      "https://images.unsplash.com/photo-1572286258217-ea152504620f?auto=format&fit=crop&q=80&w=800",
+      "https://images.unsplash.com/photo-1534778101976-62847782c213?auto=format&fit=crop&q=80&w=800"
+    ],
     department: "Signature Coffee",
     options: {
       size: ["Regular", "Large"],
@@ -79,8 +89,12 @@ export const PRODUCTS: Product[] = [
     price: 4.75,
     originalPrice: 5.50,
     discountPercentage: 14,
-    description: "18-hour slow-steeped cold brew for a bold, low-acid finish.",
+    description: "18-hour slow-steeped cold brew for a bold, low-acid finish. Perfectly refreshing on a hot day.",
     image: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&q=80&w=800",
+    gallery: [
+      "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?auto=format&fit=crop&q=80&w=800",
+      "https://images.unsplash.com/photo-1504502350688-00f5d59bbdeb?auto=format&fit=crop&q=80&w=800"
+    ],
     department: "Signature Coffee",
     options: {
       size: ["12oz", "16oz", "24oz"],
@@ -94,6 +108,38 @@ export const PRODUCTS: Product[] = [
       topping: {
         "Sweet Cream Cold Foam": 1.00,
         "Salted Caramel Foam": 1.25
+      }
+    }
+  },
+  {
+    id: "9",
+    name: "Zenith Ceramic Mug",
+    price: 18.00,
+    description: "Handcrafted ceramic mug with a weighted bottom and ergonomic handle. Available in signature matte finishes.",
+    image: "https://images.unsplash.com/photo-1514228742587-6b1558fbed39?auto=format&fit=crop&q=80&w=800",
+    gallery: [
+      "https://images.unsplash.com/photo-1577937927133-66ef06ac9df2?auto=format&fit=crop&q=80&w=800",
+      "https://images.unsplash.com/photo-1514228742587-6b1558fbed39?auto=format&fit=crop&q=80&w=800",
+      "https://images.unsplash.com/photo-1517142089942-ba376ce32a2e?auto=format&fit=crop&q=80&w=800"
+    ],
+    department: "Merchandise",
+    options: {
+      color: ["#1a1a1a", "#ffffff", "#d35400"],
+      finish: ["Matte", "Glossy"]
+    },
+    optionPriceModifiers: {
+      finish: {
+        "Glossy": 2.00
+      },
+      color: {
+        "#d35400": 3.00
+      }
+    },
+    optionImages: {
+      color: {
+        "#1a1a1a": "https://images.unsplash.com/photo-1514228742587-6b1558fbed39?auto=format&fit=crop&q=80&w=800",
+        "#ffffff": "https://images.unsplash.com/photo-1577937927133-66ef06ac9df2?auto=format&fit=crop&q=80&w=800",
+        "#d35400": "https://images.unsplash.com/photo-1517142089942-ba376ce32a2e?auto=format&fit=crop&q=80&w=800"
       }
     }
   },

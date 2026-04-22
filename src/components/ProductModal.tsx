@@ -11,13 +11,49 @@ interface ProductModalProps {
   onAddToCart: (product: Product, quantity: number, customizations: any) => void;
   currency: Currency;
   user: any;
+  minStockThreshold?: number;
 }
 
-export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, onAddToCart, currency, user }) => {
+export const ProductModal: React.FC<ProductModalProps> = ({ 
+  product, 
+  onClose, 
+  onAddToCart, 
+  currency, 
+  user,
+  minStockThreshold = 5
+}) => {
   const [quantity, setQuantity] = useState(1);
   const [customizations, setCustomizations] = useState<any>({});
-  const [currentImage, setCurrentImage] = useState(product?.image || '');
   const [showOptionErrors, setShowOptionErrors] = useState(false);
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+
+  const allImages = [product?.image, ...(product?.gallery || [])].filter(Boolean) as string[];
+  const [activeImageIdx, setActiveImageIdx] = useState(0);
+  const isScrollingRef = React.useRef(false);
+
+  // Sync index on scroll
+  React.useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (isScrollingRef.current) return;
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const idx = Number(entry.target.getAttribute('data-index'));
+            setActiveImageIdx(idx);
+          }
+        });
+      },
+      { root: container, threshold: 0.6 }
+    );
+
+    const images = container.querySelectorAll('.gallery-image-wrapper');
+    images.forEach((img) => observer.observe(img));
+
+    return () => observer.disconnect();
+  }, [allImages]);
 
   const handleCustomizationChange = (key: string, value: string) => {
     setCustomizations(prev => ({ ...prev, [key]: value }));
@@ -25,7 +61,27 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, on
     
     // Update image if we have option-specific images
     if (product?.optionImages?.[key]?.[value]) {
-      setCurrentImage(product.optionImages[key][value]);
+      const targetImg = product.optionImages[key][value];
+      const idx = allImages.indexOf(targetImg);
+      if (idx !== -1) {
+        scrollToImage(idx);
+      }
+    }
+  };
+
+  const scrollToImage = (index: number) => {
+    setActiveImageIdx(index);
+    isScrollingRef.current = true;
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const images = container.querySelectorAll('.gallery-image-wrapper');
+      if (images[index]) {
+        images[index].scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Release ref after animation
+        setTimeout(() => {
+          isScrollingRef.current = false;
+        }, 1000);
+      }
     }
   };
 
@@ -63,8 +119,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, on
   React.useEffect(() => {
     setQuantity(1);
     setCustomizations({});
-    setCurrentImage(product?.image || '');
+    setActiveImageIdx(0);
     setShowOptionErrors(false);
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
   }, [product]);
 
   const calculateAdjustedPrice = React.useCallback(() => {
@@ -83,8 +142,6 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, on
 
   const currentPrice = calculateAdjustedPrice();
 
-  const allImages = [product?.image, ...(product?.gallery || [])].filter(Boolean) as string[];
-
   return (
     <AnimatePresence>
       {product && (
@@ -94,16 +151,16 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, on
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm"
         >
-          <div className="min-h-screen flex items-center justify-center p-4 md:p-8">
+          <div className="min-h-screen flex items-center justify-center p-2 md:p-8">
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-4xl bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row my-8"
+              className="relative w-full max-w-5xl bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row my-4 md:my-8"
             >
             <button
               onClick={onClose}
-              className="absolute top-4 left-4 md:right-4 md:left-auto z-10 px-4 py-2 flex items-center gap-2 bg-white/90 backdrop-blur-md rounded-full text-gray-800 hover:bg-white transition-colors shadow-lg font-medium text-sm"
+              className="absolute top-4 left-4 md:right-4 md:left-auto z-20 px-4 py-2 flex items-center gap-2 bg-white/90 backdrop-blur-md rounded-full text-gray-800 hover:bg-white transition-colors shadow-lg font-medium text-sm border border-black/5"
             >
               <ArrowLeft size={16} className="md:hidden" />
               <span className="md:hidden">Back</span>
@@ -111,30 +168,65 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, on
             </button>
 
           {/* Image Gallery - Scrollable Pane showing ALL images */}
-          <div className="w-full md:w-[55%] h-[35vh] md:h-[80vh] overflow-y-auto custom-scrollbar bg-gray-50/50">
-            <div className="flex flex-col space-y-px">
+          <div className="w-full md:w-[60%] relative flex flex-col md:flex-row h-[45vh] md:h-[85vh]">
+            {/* Desktop Thumbnails */}
+            <div className="hidden md:flex flex-col w-20 border-r border-black/5 p-3 space-y-3 bg-gray-50/50">
               {allImages.map((img, idx) => (
-                <div key={idx} className="w-full aspect-[4/3] md:aspect-[4/5] relative bg-white overflow-hidden">
-                  <img
-                    src={img}
-                    alt={`${product.name} - view ${idx + 1}`}
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                  {idx === 0 && product.discountPercentage && (
-                    <div className="absolute top-0 left-0 h-full w-8 md:w-10 flex items-center justify-center bg-red-600/90 backdrop-blur-sm z-10">
-                      <span className="text-white text-[11px] md:text-[13px] font-black uppercase tracking-tighter [writing-mode:vertical-lr] rotate-180">
-                        SAVE {product.discountPercentage}% OFF
-                      </span>
-                    </div>
-                  )}
-                </div>
+                <button
+                  key={idx}
+                  onClick={() => scrollToImage(idx)}
+                  className={`w-full aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                    activeImageIdx === idx ? 'border-[#d35400] shadow-md scale-105' : 'border-transparent opacity-60 hover:opacity-100'
+                  }`}
+                >
+                  <img src={img} alt="thumb" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                </button>
+              ))}
+            </div>
+
+            {/* Main Scrollable View */}
+            <div 
+              ref={scrollContainerRef}
+              className="flex-1 overflow-y-auto custom-scrollbar bg-white snap-y snap-mandatory"
+            >
+              <div className="flex flex-col">
+                {allImages.map((img, idx) => (
+                  <div 
+                    key={idx} 
+                    data-index={idx}
+                    className="gallery-image-wrapper w-full aspect-[4/3] md:aspect-[4/5] relative bg-white overflow-hidden snap-start"
+                  >
+                    <img
+                      src={img}
+                      alt={`${product.name} - view ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    {idx === 0 && product.discountPercentage && (
+                      <div className="absolute top-0 left-0 h-full w-8 md:w-10 flex items-center justify-center bg-red-600/90 backdrop-blur-sm z-10 shadow-xl">
+                        <span className="text-white text-[10px] md:text-[12px] font-black uppercase tracking-tighter [writing-mode:vertical-lr] rotate-180 drop-shadow-sm">
+                          SAVE {product.discountPercentage}% OFF
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Mobile Indicator */}
+            <div className="absolute bottom-4 right-4 flex md:hidden gap-1.5 bg-black/20 backdrop-blur-md px-3 py-1.5 rounded-full z-10">
+              {allImages.map((_, idx) => (
+                <div 
+                  key={idx} 
+                  className={`w-1.5 h-1.5 rounded-full transition-all ${activeImageIdx === idx ? 'bg-white w-4' : 'bg-white/40'}`} 
+                />
               ))}
             </div>
           </div>
 
           {/* Content Section - Sticky on desktop */}
-          <div className="w-full md:w-[45%] p-5 md:p-10 flex flex-col h-[65vh] md:h-[80vh] overflow-y-auto custom-scrollbar bg-white">
+          <div className="w-full md:w-[40%] p-6 md:p-10 flex flex-col h-[55vh] md:h-[85vh] overflow-y-auto custom-scrollbar bg-white shadow-[-10px_0_30px_rgba(0,0,0,0.02)]">
             <div className="flex-1">
               <div className="flex items-center gap-1.5 mb-1.5">
                 <div className="flex">
@@ -310,8 +402,12 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, onClose, on
                 <p className="text-[8px] md:text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Availability Status</p>
                 <div className="flex items-center gap-2">
                   <div className={`w-1 h-1 md:w-1.5 md:h-1.5 rounded-full ${product.stock && product.stock > 0 ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-                  <p className={`text-[10px] md:text-[11px] font-medium font-sans ${product.stock && product.stock > 0 ? 'text-gray-600' : 'text-red-500'}`}>
-                    {product.stock && product.stock > 0 ? `${product.stock} pieces currently available` : 'Temporarily Out of Stock'}
+                  <p className={`text-[10px] md:text-[11px] font-medium font-sans ${product.stock && product.stock > 0 ? (product.stock <= minStockThreshold ? 'text-amber-600 font-bold' : 'text-gray-600') : 'text-red-500'}`}>
+                    {product.stock && product.stock > 0 
+                      ? (product.stock <= minStockThreshold 
+                          ? `Hurry! Only ${product.stock} pieces remaining` 
+                          : `${product.stock} pieces currently available`) 
+                      : 'Temporarily Out of Stock'}
                   </p>
                 </div>
               </div>
